@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from federated.fl_base import FL
 from federated.shortcuts import average_weights
 from models.base import ModelHandler, CNNMnist
+from settings import device
 from utils.data import DatasetSplit
 from env import get_model
 
@@ -94,23 +95,24 @@ class Client:
                  weight_decay=0.0002):
         self.global_index = global_index,
         self.group_index = group_index
-        self.model = get_model(args)
-        self.prior_model = copy.deepcopy(self.model)
+        self.device = device
+        self.model = get_model(args).to(self.device)
+        self.prior_model = copy.deepcopy(self.model).to(self.device)
         self.train_dl = train_dl
-        self.poster_model = copy.deepcopy(self.model)
-        for param in self.poster_model.fc1.parameters():
+        self.poster_model = copy.deepcopy(self.model).to(self.device)
+        for param in self.poster_model.classifier.parameters():
             param.requires_grad = False
-        for param in self.poster_model.fc2.parameters():
-            param.requires_grad = False
+        # for param in self.poster_model.fc2.parameters():
+        #     param.requires_grad = False
         batch = None
         for batch, label in train_dl:
+            batch, label = batch.to(self.device), label.to(self.device)
             break
         shape = self.poster_model.feature_extractor(batch).shape
         self.discriminator = Discriminator(length_feature=shape[1] * shape[2] * shape[3],
-                                           num_clients=args.num_users)
+                                           num_clients=args.num_users).to(self.device)
         self.learning_rate = args.lr
         self.momentum = momentum
-        self.device = args.device
         if args.optimizer == 'sgd':
             self.prior_optimizer = torch.optim.SGD(self.prior_model.parameters(), lr=self.learning_rate,
                                                    momentum=momentum, weight_decay=weight_decay)
@@ -120,10 +122,10 @@ class Client:
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.num_classes_dict = num_classes_dict
         self.args = args
-        self.uad_loss = UADLoss(num_clients=args.num_users)
+        self.uad_loss = UADLoss(num_clients=args.num_users).to(self.device)
         self.poster_optimizer = torch.optim.SGD(self.poster_model.parameters(), lr=self.learning_rate,
                                                 momentum=momentum, weight_decay=weight_decay)
-        self.discriminator_loss = DiscriminatorLoss(num_group_clients=num_group_clients)
+        self.discriminator_loss = DiscriminatorLoss(num_group_clients=num_group_clients).to(self.device)
         self.discriminator_optimizer = torch.optim.SGD(self.discriminator.parameters(), lr=self.learning_rate,
                                                        momentum=momentum, weight_decay=weight_decay)
 
@@ -140,27 +142,28 @@ class Client:
         self.poster_model.load_state_dict(self.prior_model.state_dict())
         self.poster_model.train()
         for batch_idx, (data, target) in enumerate(self.train_dl):
+            data, target = data.to(self.device), target.to(self.device)
             d_j_batch_list = []
             for j in range(num_groups):
                 if j == self.group_index:
                     continue
                 assert hasattr(group_clients[j], "prior_model")
-                f_j_batch = group_clients[j].prior_model.feature_extractor(data).detach()
-                d_j_batch = self.discriminator(f_j_batch)[:, group_clients[j].global_index]
+                f_j_batch = group_clients[j].prior_model.feature_extractor(data).detach().to(self.device)
+                d_j_batch = self.discriminator(f_j_batch)[:, group_clients[j].global_index].to(self.device)
                 d_j_batch_list.append(d_j_batch.view(1, -1))
-            d_j_batch = torch.cat(d_j_batch_list).T.detach()
-            f_self = self.poster_model.feature_extractor(data)
-            d_self = self.discriminator(f_self).detach()
+            d_j_batch = torch.cat(d_j_batch_list).T.detach().to(self.device)
+            f_self = self.poster_model.feature_extractor(data).to(self.device)
+            d_self = self.discriminator(f_self).detach().to(self.device)
 
-            y_hat = self.poster_model(data)
+            y_hat = self.poster_model(data).to(self.device)
             cls = self.criterion(y_hat, target)
             extractor_loss = cls + self.uad_loss(d_self)
             self.poster_optimizer.zero_grad()
             extractor_loss.backward()
             self.poster_optimizer.step()
 
-            f_self = self.poster_model.feature_extractor(data).detach()
-            d_self = self.discriminator(f_self)[:, self.global_index].view(-1, 1)
+            f_self = self.poster_model.feature_extractor(data).detach().to(self.device)
+            d_self = self.discriminator(f_self)[:, self.global_index].view(-1, 1).to(self.device)
             extractor_batch_loss.append(extractor_loss.item())
             discriminator_loss = self.discriminator_loss(d_self, d_j_batch)
             self.discriminator_optimizer.zero_grad()
@@ -210,7 +213,7 @@ clients = [
         DatasetSplit(train_loader.dataset, user_groups[idx]),
         batch_size=args.local_bs, shuffle=True),
         args=args,
-        num_classes_dict=Counter(train_loader.dataset.targets[user_groups[idx]].detach().numpy()),
+        num_classes_dict=Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy()),
         group_index=0,
         num_group_clients=num_group_clients,
         global_index=idx

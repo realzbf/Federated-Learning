@@ -91,7 +91,6 @@ def get_dataset(args, download=True):
         test_dataset = datasets.CIFAR10(data_dir, train=False, download=download,
                                         transform=apply_transform)
 
-        pass
 
     elif args.dataset == 'mnist' or args.dataset == 'fmnist':
 

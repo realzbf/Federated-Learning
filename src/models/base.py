@@ -113,11 +113,11 @@ cfg = {
 class VGG(nn.Module):
     def __init__(self, vgg_name='VGG11'):
         super(VGG, self).__init__()
-        self.features = self._make_layers(cfg[vgg_name])
+        self.feature_extractor = self._make_layers(cfg[vgg_name])
         self.classifier = nn.Linear(512, 10)
 
     def forward(self, x):
-        out = self.features(x)
+        out = self.feature_extractor(x)
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
         return out
@@ -141,13 +141,13 @@ class ModelHandler:
     def __init__(self, train_dl=None, test_dl=None, model=None, args=None, momentum=0.5, weight_decay=1e-4):
         self.learning_rate = args.lr
         self.momentum = momentum
-        self.model = model.to(device)
         self.device = device
+        self.model = model.to(self.device)
         if args.optimizer == 'sgd':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, momentum=momentum)
         else:
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=weight_decay)
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.device).to(device)
+        self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.train_dl = train_dl
         self.test_dl = test_dl
 
@@ -157,6 +157,7 @@ class ModelHandler:
         correct = 0
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(self.test_dl):
+                data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 batch_loss.append(self.criterion(output, target).item())
                 prediction = output.argmax(dim=1, keepdim=True)
