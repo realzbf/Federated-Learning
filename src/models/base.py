@@ -4,6 +4,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from settings import device
+
 
 class MLP(nn.Module):
     def __init__(self, dim_in, dim_hidden, dim_out):
@@ -139,13 +141,13 @@ class ModelHandler:
     def __init__(self, train_dl=None, test_dl=None, model=None, args=None, momentum=0.5, weight_decay=1e-4):
         self.learning_rate = args.lr
         self.momentum = momentum
-        self.model = model
-        self.device = args.device
+        self.model = model.to(device)
+        self.device = device
         if args.optimizer == 'sgd':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, momentum=momentum)
         else:
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=weight_decay)
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+        self.criterion = torch.nn.CrossEntropyLoss().to(self.device).to(device)
         self.train_dl = train_dl
         self.test_dl = test_dl
 
