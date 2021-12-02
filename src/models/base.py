@@ -39,16 +39,18 @@ class CNNMnist(nn.Module):
         )
         self.fc1 = nn.Linear(320, 50)
         self.fc2 = nn.Linear(50, 10)
+        self.classifier = nn.Sequential(
+            nn.Linear(320, 50),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(50, 10),
+            nn.Softmax(dim=1)
+        )
 
     def forward(self, x):
-        # x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        # x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
         x = self.feature_extractor(x)
         x = x.view(-1, x.shape[1] * x.shape[2] * x.shape[3])
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.softmax(x, dim=1)
+        return self.classifier(x)
 
 
 class CNNFashionMnist(nn.Module):
@@ -68,12 +70,12 @@ class CNNFashionMnist(nn.Module):
             self.layer1,
             self.layer2
         )
-        self.fc = nn.Linear(7 * 7 * 32, 10)
+        self.classifier = nn.Linear(7 * 7 * 32, 10)
 
     def forward(self, x):
         out = self.feature_extractor(x)
         out = out.view(out.size(0), -1)
-        out = self.fc(out)
+        out = self.classifier(out)
         return out
 
 
@@ -92,14 +94,19 @@ class CNNCifar10(nn.Module):
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
+        self.classifier = nn.Sequential(
+            self.fc1,
+            nn.ReLU(),
+            self.fc2,
+            nn.ReLU(),
+            self.fc3,
+            nn.Softmax(dim=1)
+        )
 
     def forward(self, x):
         x = self.feature_extractor(x)
         x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return F.log_softmax(x, dim=1)
+        return self.classifier(x)
 
 
 cfg = {

@@ -91,20 +91,19 @@ def get_mixed_predict(X, clients, args):
 
 
 class Client:
-    def __init__(self, train_dl, args, num_classes_dict, group_index, num_group_clients, global_index, momentum=0.9,
-                 weight_decay=0.0002):
+    def __init__(self, train_dl, args, num_classes_dict, group_index, num_group_clients, global_index, model=None,
+                 momentum=0.9, weight_decay=0.0002):
         self.global_index = global_index,
         self.group_index = group_index
         self.device = device
-        self.model = get_model(args)
+        if not model:
+            self.model = get_model(args)
+        else:
+            self.model = model
         self.prior_model = copy.deepcopy(self.model)
         self.train_dl = train_dl
-        self.poster_model = copy.deepcopy(self.model)
-        for param in self.poster_model.fc1.parameters():
-            param.requires_grad = False
-        for param in self.poster_model.fc2.parameters():
-            param.requires_grad = False 
-        for param in self.poster_model.fc3.parameters():
+        self.poster_model = self.prior_model
+        for param in self.poster_model.classifier.parameters():
             param.requires_grad = False
         batch = None
         for batch, label in train_dl:
@@ -135,17 +134,22 @@ class Client:
                                            args=args, momentum=0.9, weight_decay=0.0002)
         return prior_model_handler.train()
 
-    def poster_model_train(self, group_clients):
+    def ufo_model_train(self, group_clients):
         discriminator_batch_loss = []
         extractor_batch_loss = []
         num_groups = len(group_clients)
         self.discriminator.train()
-        self.poster_model.load_state_dict(self.prior_model.state_dict())
+        self.prior_model.train()
         self.poster_model.train()
+        self.prior_model.to(self.device)
         self.poster_model.to(self.device)
         self.discriminator.to(self.device)
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
+            y_hat = self.prior_model(data).to(self.device)
+            cls = self.criterion(y_hat, target)  # 交叉损失
+
+            # 计算UAD损失
             d_j_batch_list = []
             for j in range(num_groups):
                 if j == self.group_index:
@@ -157,14 +161,14 @@ class Client:
             d_j_batch = torch.cat(d_j_batch_list).T.detach().to(self.device)
             f_self = self.poster_model.feature_extractor(data).to(self.device)
             d_self = self.discriminator(f_self).detach().to(self.device)
-
-            y_hat = self.poster_model(data).to(self.device)
-            cls = self.criterion(y_hat, target)
             extractor_loss = cls + self.uad_loss(d_self)
+
+            # 优化特征提取器
             self.poster_optimizer.zero_grad()
             extractor_loss.backward()
             self.poster_optimizer.step()
 
+            # 优化判别器
             f_self = self.poster_model.feature_extractor(data).detach().to(self.device)
             d_self = self.discriminator(f_self)[:, self.global_index].view(-1, 1).to(self.device)
             extractor_batch_loss.append(extractor_loss.item())
@@ -211,59 +215,71 @@ num_clients = args.num_users
 num_group_clients = int(args.frac * num_clients)
 num_groups = num_clients // num_group_clients
 
-clients = [
-    Client(train_dl=DataLoader(
-        DatasetSplit(train_loader.dataset, user_groups[idx]),
-        batch_size=args.local_bs, shuffle=True),
-        args=args,
-        num_classes_dict=Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy()),
-        group_index=0,
-        num_group_clients=num_group_clients,
-        global_index=idx
-    )
-    for idx in range(num_clients)
-]
+
+def get_group(idxs):
+
+    return [
+        Client(train_dl=DataLoader(
+            DatasetSplit(train_loader.dataset, user_groups[idx]),
+            batch_size=args.local_bs, shuffle=True),
+            args=args,
+            num_classes_dict=Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy()),
+            group_index=0,  # 后续需动态修改
+            num_group_clients=num_group_clients,
+            global_index=idx
+        )
+        for idx in idxs
+    ]
+
 
 global_model = get_model(args)
-global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_loader, model=copy.deepcopy(global_model),
-                                    args=args)
-avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_loader, model=copy.deepcopy(global_model),
+ufo_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_loader,
+                                        model=copy.deepcopy(global_model),
                                         args=args)
-avg_clients = copy.deepcopy(clients)
+avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_loader,
+                                        model=copy.deepcopy(global_model),
+                                        args=args)
 # half_group = random.sample(clients, num_group_clients // 2)
 # for i in range(num_group_clients // 2):
 #     half_group[i].group_index = i
 
 for epoch in range(100):
-    group = random.sample(clients, num_group_clients)
-    indices = [c.global_index[0] for c in group]
-    avg_group = [avg_clients[i] for i in indices]
-    for i in range(num_group_clients):
-        group[i].group_index = i
-    weights = []
+    indices = random.sample(range(num_clients), num_group_clients)
+    avg_group = get_group(indices)
     avg_weights = []
     loss, acc = 0, 0
+
+    # 联邦平均
     for client in avg_group:
         # 下载模型
         client.prior_model.load_state_dict(avg_global_model_handler.model.state_dict())
         for u in range(10):
             loss, acc = client.prior_model_train()
-        print(loss, acc)
         avg_weights.append(client.prior_model.state_dict())
-    for client in group:
-        # 下载模型
-        client.prior_model.load_state_dict(global_model_handler.model.state_dict())
-        for u in range(10):
-            loss, acc = client.prior_model_train()
-        print(loss, acc)
+
+    # UFO
+    ufo_weights = []
+    # 定义组索引
+    ufo_group = get_group(indices)
     for i in range(num_group_clients):
-        extractor_loss, discriminator_loss = group[i].poster_model_train(group)
-        print("epoch{} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-                epoch, i, extractor_loss, discriminator_loss))
-        weights.append(group[i].poster_model.state_dict())
-    global_weights = average_weights(avg_weights)
-    avg_global_model_handler.model.load_state_dict(global_weights)
+        ufo_group[i].group_index = i
+    for client in ufo_group:
+        # 下载模型
+        client.prior_model.load_state_dict(ufo_global_model_handler.model.state_dict())
+    # 本地训练十轮
+    for u in range(10):
+        for idx,client in enumerate(ufo_group):
+            # 分发自己的模型
+            shared_group = copy.deepcopy(ufo_group)
+            extractor_loss, discriminator_loss = client.ufo_model_train(shared_group)
+            print("epoch{} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
+                epoch, u, extractor_loss, discriminator_loss))
+    for client in ufo_group:
+        ufo_weights.append(client.poster_model.state_dict())
+
+    avg_global_weights = average_weights(avg_weights)
+    avg_global_model_handler.model.load_state_dict(avg_global_weights)
     print("epoch{} FedAVG global acc={:.3f}".format(epoch, avg_global_model_handler.validation()[1]))
-    global_weights = average_weights(weights)
-    global_model_handler.model.load_state_dict(global_weights)
-    print("epoch{} FedUFO global acc={:.3f}".format(epoch, global_model_handler.validation()[1]))
+    ufo_global_weights = average_weights(ufo_weights)
+    ufo_global_model_handler.model.load_state_dict(ufo_global_weights)
+    print("epoch{} FedUFO global acc={:.3f}".format(epoch, ufo_global_model_handler.validation()[1]))
