@@ -18,7 +18,7 @@ from utils.data import DatasetSplit
 from env import get_model
 import logging
 
-logging.basicConfig(filename="log.txt", level=logging.INFO)
+logging.basicConfig(filename="log_vgg.txt", level=logging.INFO)
 
 
 class Discriminator(nn.Module):

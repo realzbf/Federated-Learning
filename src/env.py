@@ -19,7 +19,7 @@ def get_model(args):
         elif args.dataset == 'fmnist':
             model = CNNFashionMnist()
         elif args.dataset == 'cifar':
-            model = CNNCifar10()
+            model = VGG()
     elif args.model == 'mlp':
         img_size = train_dataset[0][0].shape
         len_in = 1
