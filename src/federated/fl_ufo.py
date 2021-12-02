@@ -100,17 +100,18 @@ class Client:
             self.model = get_model(args)
         else:
             self.model = model
-        self.prior_model = copy.deepcopy(self.model)
+        self.prior_model = copy.deepcopy(self.model).to(self.device)
         self.train_dl = train_dl
         self.poster_model = self.prior_model
         for param in self.poster_model.classifier.parameters():
             param.requires_grad = False
         batch = None
         for batch, label in train_dl:
+            batch, label = batch.to(self.device), label.to(self.device)
             break
         shape = self.poster_model.feature_extractor(batch).shape
         self.discriminator = Discriminator(length_feature=shape[1] * shape[2] * shape[3],
-                                           num_clients=args.num_users)
+                                           num_clients=args.num_users).to(self.device)
         self.learning_rate = args.lr
         self.momentum = momentum
         if args.optimizer == 'sgd':
@@ -141,9 +142,6 @@ class Client:
         self.discriminator.train()
         self.prior_model.train()
         self.poster_model.train()
-        self.prior_model.to(self.device)
-        self.poster_model.to(self.device)
-        self.discriminator.to(self.device)
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
             y_hat = self.prior_model(data).to(self.device)
