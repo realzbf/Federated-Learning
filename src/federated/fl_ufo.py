@@ -96,21 +96,22 @@ class Client:
         self.global_index = global_index,
         self.group_index = group_index
         self.device = device
-        self.model = get_model(args).to(self.device)
-        self.prior_model = copy.deepcopy(self.model).to(self.device)
+        self.model = get_model(args)
+        self.prior_model = copy.deepcopy(self.model)
         self.train_dl = train_dl
-        self.poster_model = copy.deepcopy(self.model).to(self.device)
-        for param in self.poster_model.classifier.parameters():
+        self.poster_model = copy.deepcopy(self.model)
+        for param in self.poster_model.fc1.parameters():
             param.requires_grad = False
-        # for param in self.poster_model.fc2.parameters():
-        #     param.requires_grad = False
+        for param in self.poster_model.fc2.parameters():
+            param.requires_grad = False 
+        for param in self.poster_model.fc3.parameters():
+            param.requires_grad = False
         batch = None
         for batch, label in train_dl:
-            batch, label = batch.to(self.device), label.to(self.device)
             break
         shape = self.poster_model.feature_extractor(batch).shape
         self.discriminator = Discriminator(length_feature=shape[1] * shape[2] * shape[3],
-                                           num_clients=args.num_users).to(self.device)
+                                           num_clients=args.num_users)
         self.learning_rate = args.lr
         self.momentum = momentum
         if args.optimizer == 'sgd':
@@ -141,6 +142,8 @@ class Client:
         self.discriminator.train()
         self.poster_model.load_state_dict(self.prior_model.state_dict())
         self.poster_model.train()
+        self.poster_model.to(self.device)
+        self.discriminator.to(self.device)
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
             d_j_batch_list = []
@@ -256,7 +259,7 @@ for epoch in range(100):
     for i in range(num_group_clients):
         extractor_loss, discriminator_loss = group[i].poster_model_train(group)
         print("epoch{} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-            epoch, i, extractor_loss, discriminator_loss))
+                epoch, i, extractor_loss, discriminator_loss))
         weights.append(group[i].poster_model.state_dict())
     global_weights = average_weights(avg_weights)
     avg_global_model_handler.model.load_state_dict(global_weights)
