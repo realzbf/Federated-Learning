@@ -16,6 +16,9 @@ from models.base import ModelHandler, CNNMnist
 from settings import device, BASE_DIR
 from utils.data import DatasetSplit
 from env import get_model
+import logging
+
+logging.basicConfig(filename="log.txt", level=logging.INFO)
 
 
 class Discriminator(nn.Module):
@@ -241,7 +244,7 @@ avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_load
 
 epoch_acc = []
 
-for epoch in range(2):
+for epoch in range(100):
     indices = random.sample(range(num_clients), num_group_clients)
     avg_group = get_group(indices)
     avg_weights = []
@@ -251,8 +254,8 @@ for epoch in range(2):
     for client in avg_group:
         # 下载模型
         client.prior_model.load_state_dict(avg_global_model_handler.model.state_dict())
-        # for u in range(10):
-        #     loss, acc = client.prior_model_train()
+        for u in range(10):
+            loss, acc = client.prior_model_train()
         avg_weights.append(client.prior_model.state_dict())
 
     # UFO
@@ -265,7 +268,7 @@ for epoch in range(2):
         # 下载模型
         client.prior_model.load_state_dict(ufo_global_model_handler.model.state_dict())
     # 本地训练十轮
-    for u in range(1):
+    for u in range(10):
         for idx, client in enumerate(ufo_group):
             # 分发自己的模型
             shared_group = copy.deepcopy(ufo_group)
@@ -278,13 +281,13 @@ for epoch in range(2):
     avg_global_weights = average_weights(avg_weights)
     avg_global_model_handler.model.load_state_dict(avg_global_weights)
     avg_loss, avg_acc = avg_global_model_handler.validation()
-    print("epoch{} FedAVG global acc={:.3f}".format(epoch, avg_acc))
+    logging.info("epoch{} FedAVG global acc={:.3f}".format(epoch, avg_acc))
 
     ufo_global_weights = average_weights(ufo_weights)
     ufo_global_model_handler.model.load_state_dict(ufo_global_weights)
     ufo_loss, ufo_acc = ufo_global_model_handler.validation()
     epoch_acc.append((avg_acc, ufo_acc))
-    print("epoch{} FedUFO global acc={:.3f}".format(epoch, ufo_acc))
+    logging.info("epoch{} FedUFO global acc={:.3f}".format(epoch, ufo_acc))
 
 figure = get_figure(np.array(epoch_acc), labels=['FedAVG', 'FedUAD'])
 figure.savefig(
