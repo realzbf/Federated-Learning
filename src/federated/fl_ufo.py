@@ -1,4 +1,5 @@
 import copy
+import os
 import random
 from collections import Counter
 
@@ -12,7 +13,7 @@ from torch.utils.data import DataLoader
 from federated.fl_base import FL
 from federated.shortcuts import average_weights
 from models.base import ModelHandler, CNNMnist
-from settings import device
+from settings import device, BASE_DIR
 from utils.data import DatasetSplit
 from env import get_model
 
@@ -103,8 +104,6 @@ class Client:
         self.prior_model = copy.deepcopy(self.model).to(self.device)
         self.train_dl = train_dl
         self.poster_model = self.prior_model
-        for param in self.poster_model.classifier.parameters():
-            param.requires_grad = False
         batch = None
         for batch, label in train_dl:
             batch, label = batch.to(self.device), label.to(self.device)
@@ -194,8 +193,8 @@ class Client:
     #     return loss_avg
 
 
-def plot(results, labels):
-    plt.figure()
+def get_figure(results, labels):
+    figure = plt.figure()
     plt.ylabel("Test Accuracy")
     plt.xlabel("Round")
     num = results.shape[1]
@@ -203,7 +202,7 @@ def plot(results, labels):
         y = np.around(results[:, i].astype('float'), 2)
         plt.plot(y, label=labels[i])
     plt.legend()
-    plt.show()
+    return figure
 
 
 from env import test_loader, train_loader, args, user_groups
@@ -215,7 +214,6 @@ num_groups = num_clients // num_group_clients
 
 
 def get_group(idxs):
-
     return [
         Client(train_dl=DataLoader(
             DatasetSplit(train_loader.dataset, user_groups[idx]),
@@ -241,7 +239,9 @@ avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_load
 # for i in range(num_group_clients // 2):
 #     half_group[i].group_index = i
 
-for epoch in range(100):
+epoch_acc = []
+
+for epoch in range(2):
     indices = random.sample(range(num_clients), num_group_clients)
     avg_group = get_group(indices)
     avg_weights = []
@@ -251,8 +251,8 @@ for epoch in range(100):
     for client in avg_group:
         # 下载模型
         client.prior_model.load_state_dict(avg_global_model_handler.model.state_dict())
-        for u in range(10):
-            loss, acc = client.prior_model_train()
+        # for u in range(10):
+        #     loss, acc = client.prior_model_train()
         avg_weights.append(client.prior_model.state_dict())
 
     # UFO
@@ -265,19 +265,29 @@ for epoch in range(100):
         # 下载模型
         client.prior_model.load_state_dict(ufo_global_model_handler.model.state_dict())
     # 本地训练十轮
-    for u in range(10):
-        for idx,client in enumerate(ufo_group):
+    for u in range(1):
+        for idx, client in enumerate(ufo_group):
             # 分发自己的模型
             shared_group = copy.deepcopy(ufo_group)
             extractor_loss, discriminator_loss = client.ufo_model_train(shared_group)
             print("epoch{} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-                epoch, u, extractor_loss, discriminator_loss))
+                epoch, idx, extractor_loss, discriminator_loss))
     for client in ufo_group:
         ufo_weights.append(client.poster_model.state_dict())
 
     avg_global_weights = average_weights(avg_weights)
     avg_global_model_handler.model.load_state_dict(avg_global_weights)
-    print("epoch{} FedAVG global acc={:.3f}".format(epoch, avg_global_model_handler.validation()[1]))
+    avg_loss, avg_acc = avg_global_model_handler.validation()
+    print("epoch{} FedAVG global acc={:.3f}".format(epoch, avg_acc))
+
     ufo_global_weights = average_weights(ufo_weights)
     ufo_global_model_handler.model.load_state_dict(ufo_global_weights)
-    print("epoch{} FedUFO global acc={:.3f}".format(epoch, ufo_global_model_handler.validation()[1]))
+    ufo_loss, ufo_acc = ufo_global_model_handler.validation()
+    epoch_acc.append((avg_acc, ufo_acc))
+    print("epoch{} FedUFO global acc={:.3f}".format(epoch, ufo_acc))
+
+figure = get_figure(np.array(epoch_acc), labels=['FedAVG', 'FedUAD'])
+figure.savefig(
+    os.path.join(*[BASE_DIR, "save", "avg_uad_{}".format(args.dataset)]),
+    dpi=320
+)
