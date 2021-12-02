@@ -106,7 +106,7 @@ class Client:
             self.model = model
         self.prior_model = copy.deepcopy(self.model).to(self.device)
         self.train_dl = train_dl
-        self.poster_model = self.prior_model
+        self.poster_model = copy.deepcopy(self.model).to(self.device)
         batch = None
         for batch, label in train_dl:
             batch, label = batch.to(self.device), label.to(self.device)
@@ -137,16 +137,16 @@ class Client:
                                            args=args, momentum=0.9, weight_decay=0.0002)
         return prior_model_handler.train()
 
-    def ufo_model_train(self, group_clients):
+    def poster_model_train(self, group_clients):
         discriminator_batch_loss = []
         extractor_batch_loss = []
         num_groups = len(group_clients)
         self.discriminator.train()
-        self.prior_model.train()
         self.poster_model.train()
+        self.poster_model.load_state_dict(self.prior_model.state_dict())
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
-            y_hat = self.prior_model(data).to(self.device)
+            y_hat = self.poster_model(data).to(self.device)
             cls = self.criterion(y_hat, target)  # 交叉损失
 
             # 计算UAD损失
@@ -244,7 +244,7 @@ avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_load
 
 epoch_acc = []
 
-for epoch in range(100):
+for round in range(100):
     indices = random.sample(range(num_clients), num_group_clients)
     avg_group = get_group(indices)
     avg_weights = []
@@ -268,26 +268,26 @@ for epoch in range(100):
         # 下载模型
         client.prior_model.load_state_dict(ufo_global_model_handler.model.state_dict())
     # 本地训练十轮
-    for u in range(10):
-        for idx, client in enumerate(ufo_group):
-            # 分发自己的模型
-            shared_group = copy.deepcopy(ufo_group)
-            extractor_loss, discriminator_loss = client.ufo_model_train(shared_group)
-            print("epoch{} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-                epoch, idx, extractor_loss, discriminator_loss))
+    for idx, client in enumerate(ufo_group):
+        client.prior_model_train()
+    # 训练后模型
+    for idx, client in enumerate(ufo_group):
+        extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
+        print("round {} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
+                round, idx, extractor_loss, discriminator_loss))
     for client in ufo_group:
         ufo_weights.append(client.poster_model.state_dict())
 
     avg_global_weights = average_weights(avg_weights)
     avg_global_model_handler.model.load_state_dict(avg_global_weights)
     avg_loss, avg_acc = avg_global_model_handler.validation()
-    logging.info("epoch{} FedAVG global acc={:.3f}".format(epoch, avg_acc))
+    logging.info("round {} FedAVG global acc={:.3f}".format(round, avg_acc))
 
     ufo_global_weights = average_weights(ufo_weights)
     ufo_global_model_handler.model.load_state_dict(ufo_global_weights)
     ufo_loss, ufo_acc = ufo_global_model_handler.validation()
     epoch_acc.append((avg_acc, ufo_acc))
-    logging.info("epoch{} FedUFO global acc={:.3f}".format(epoch, ufo_acc))
+    logging.info("round {} FedUFO global acc={:.3f}".format(round, ufo_acc))
 
 figure = get_figure(np.array(epoch_acc), labels=['FedAVG', 'FedUAD'])
 figure.savefig(
