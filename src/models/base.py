@@ -46,10 +46,12 @@ class CNNMnist(nn.Module):
             nn.Linear(50, 10),
             nn.Softmax(dim=1)
         )
+        self.feature = None
 
     def forward(self, x):
         x = self.feature_extractor(x)
-        x = x.view(-1, x.shape[1] * x.shape[2] * x.shape[3])
+        self.feature = x.detach()
+        x = self.feature.view(-1, x.shape[1] * x.shape[2] * x.shape[3])
         return self.classifier(x)
 
 

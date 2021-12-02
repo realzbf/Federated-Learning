@@ -18,7 +18,7 @@ from utils.data import DatasetSplit
 from env import get_model
 import logging
 
-logging.basicConfig(filename="log_vgg.txt", level=logging.INFO)
+logging.basicConfig(filename="log_mnist.txt", level=logging.INFO)
 
 
 class Discriminator(nn.Module):
@@ -107,6 +107,8 @@ class Client:
         self.prior_model = copy.deepcopy(self.model).to(self.device)
         self.train_dl = train_dl
         self.poster_model = copy.deepcopy(self.model).to(self.device)
+        # for param in self.poster_model.classifier.parameters():
+        #     param.requires_grad = False
         batch = None
         for batch, label in train_dl:
             batch, label = batch.to(self.device), label.to(self.device)
@@ -155,7 +157,9 @@ class Client:
                 if j == self.group_index:
                     continue
                 assert hasattr(group_clients[j], "prior_model")
-                f_j_batch = group_clients[j].prior_model.feature_extractor(data).detach().to(self.device)
+                other_model = group_clients[j].prior_model
+                other_model(data)
+                f_j_batch = other_model.feature.to(self.device)
                 d_j_batch = self.discriminator(f_j_batch)[:, group_clients[j].global_index].to(self.device)
                 d_j_batch_list.append(d_j_batch.view(1, -1))
             d_j_batch = torch.cat(d_j_batch_list).T.detach().to(self.device)
@@ -269,12 +273,13 @@ for round in range(100):
         client.prior_model.load_state_dict(ufo_global_model_handler.model.state_dict())
     # 本地训练十轮
     for idx, client in enumerate(ufo_group):
-        client.prior_model_train()
+        for u in range(10):
+            loss, acc = client.prior_model_train()
     # 训练后模型
     for idx, client in enumerate(ufo_group):
         extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
         print("round {} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-                round, idx, extractor_loss, discriminator_loss))
+            round, idx, extractor_loss, discriminator_loss))
     for client in ufo_group:
         ufo_weights.append(client.poster_model.state_dict())
 
