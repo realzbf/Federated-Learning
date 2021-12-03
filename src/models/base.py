@@ -104,9 +104,11 @@ class CNNCifar10(nn.Module):
             self.fc3,
             nn.Softmax(dim=1)
         )
+        self.feature = None
 
     def forward(self, x):
         x = self.feature_extractor(x)
+        self.feature = x
         x = x.view(-1, 16 * 5 * 5)
         return self.classifier(x)
 
@@ -124,9 +126,11 @@ class VGG(nn.Module):
         super(VGG, self).__init__()
         self.feature_extractor = self._make_layers(cfg[vgg_name])
         self.classifier = nn.Linear(512, 10)
+        self.feature = None
 
     def forward(self, x):
         out = self.feature_extractor(x)
+        self.feature = out
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
         return out

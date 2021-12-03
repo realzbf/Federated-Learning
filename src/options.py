@@ -13,7 +13,7 @@ def args_parser():
                         help='the fraction of clients: C')
     parser.add_argument('--local_ep', type=int, default=10,
                         help="the number of local epochs: E")
-    parser.add_argument('--local_bs', type=int, default=10,
+    parser.add_argument('--local_bs', type=int, default=50,
                         help="local batch size: B")
     parser.add_argument('--lr', type=float, default=0.01,
                         help='learning rate')
@@ -39,7 +39,7 @@ def args_parser():
                         strided convolutions")
 
     # other arguments
-    parser.add_argument('--dataset', type=str, default='mnist', help="name \
+    parser.add_argument('--dataset', type=str, default='cifar', help="name \
                         of dataset")
     parser.add_argument('--num_classes', type=int, default=10, help="number \
                         of classes")
