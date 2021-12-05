@@ -35,23 +35,21 @@ class CNNMnist(nn.Module):
             nn.Conv2d(10, 20, kernel_size=5),
             nn.Dropout2d(),
             nn.MaxPool2d(2),
-            nn.ReLU()
+            nn.ReLU(),
         )
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
         self.classifier = nn.Sequential(
             nn.Linear(320, 50),
             nn.ReLU(),
             nn.Dropout(),
             nn.Linear(50, 10),
-            nn.Softmax(dim=1)
+            nn.LogSoftmax(dim=1)
         )
         self.feature = None
 
     def forward(self, x):
         x = self.feature_extractor(x)
         self.feature = x.detach()
-        x = self.feature.view(-1, x.shape[1] * x.shape[2] * x.shape[3])
+        x = x.view(-1, x.shape[1] * x.shape[2] * x.shape[3])
         return self.classifier(x)
 
 
@@ -76,11 +74,10 @@ class CNNFashionMnist(nn.Module):
         self.feature = None
 
     def forward(self, x):
-        out = self.feature_extractor(x)
-        self.feature = out
-        out = out.view(out.size(0), -1)
-        out = self.classifier(out)
-        return out
+        x = self.feature_extractor(x)
+        self.feature = x.detach()
+        x = x.view(x.size(0), -1)
+        return self.classifier(x)
 
 
 class CNNCifar10(nn.Module):
@@ -110,7 +107,7 @@ class CNNCifar10(nn.Module):
 
     def forward(self, x):
         x = self.feature_extractor(x)
-        self.feature = x
+        self.feature = x.detach()
         x = x.view(-1, 16 * 5 * 5)
         return self.classifier(x)
 
@@ -132,7 +129,7 @@ class VGG(nn.Module):
 
     def forward(self, x):
         out = self.feature_extractor(x)
-        self.feature = out
+        self.feature = out.detach()
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
         return out

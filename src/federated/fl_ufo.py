@@ -107,8 +107,6 @@ class Client:
         self.prior_model = copy.deepcopy(self.model).to(self.device)
         self.train_dl = train_dl
         self.poster_model = copy.deepcopy(self.model).to(self.device)
-        # for param in self.poster_model.classifier.parameters():
-        #     param.requires_grad = False
         batch = None
         for batch, label in train_dl:
             batch, label = batch.to(self.device), label.to(self.device)
@@ -221,12 +219,17 @@ num_groups = num_clients // num_group_clients
 
 
 def get_group(idxs):
+    def get_num_classes_dict(idx):
+        if isinstance(train_loader.dataset.targets, torch.Tensor):
+            return Counter(train_loader.dataset.targets[user_groups[idx]].detach().numpy())
+        else:
+            return Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy())
     return [
         Client(train_dl=DataLoader(
             DatasetSplit(train_loader.dataset, user_groups[idx]),
             batch_size=args.local_bs, shuffle=True),
             args=args,
-            num_classes_dict=Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy()),
+            num_classes_dict=get_num_classes_dict(idx),
             group_index=0,  # 后续需动态修改
             num_group_clients=num_group_clients,
             global_index=idx
@@ -271,15 +274,15 @@ for round in range(500):
     for client in ufo_group:
         # 下载模型
         client.prior_model.load_state_dict(ufo_global_model_handler.model.state_dict())
-    # 本地训练十轮
-    for idx, client in enumerate(ufo_group):
-        for u in range(10):
+    # 训练十轮
+    for u in range(10):
+        for idx, client in enumerate(ufo_group):
             loss, acc = client.prior_model_train()
-    # 训练后模型
-    for idx, client in enumerate(ufo_group):
-        extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
-        print("round {} :, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-            round, idx, extractor_loss, discriminator_loss))
+        for idx, client in enumerate(ufo_group):
+            # 训练后模型
+            extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
+            print("round {} epoch {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
+                round, u, idx, extractor_loss, discriminator_loss))
     for client in ufo_group:
         ufo_weights.append(client.poster_model.state_dict())
 
