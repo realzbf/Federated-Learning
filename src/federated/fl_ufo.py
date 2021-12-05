@@ -18,7 +18,7 @@ from utils.data import DatasetSplit
 from env import get_model
 import logging
 
-logging.basicConfig(filename="log_cifar_vgg.txt", level=logging.INFO)
+logging.basicConfig(filename="log_fmnist_cnn.txt", level=logging.INFO)
 
 
 class Discriminator(nn.Module):
@@ -248,7 +248,7 @@ avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_load
 
 epoch_acc = []
 
-for round in range(1000):
+for round in range(500):
     indices = random.sample(range(num_clients), num_group_clients)
     avg_group = get_group(indices)
     avg_weights = []

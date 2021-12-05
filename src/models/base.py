@@ -73,9 +73,11 @@ class CNNFashionMnist(nn.Module):
             self.layer2
         )
         self.classifier = nn.Linear(7 * 7 * 32, 10)
+        self.feature = None
 
     def forward(self, x):
         out = self.feature_extractor(x)
+        self.feature = out
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
         return out
