@@ -41,7 +41,7 @@ def get_user_groups_iid(targets, num_users, seed=2):
     return user_groups_dict
 
 
-def get_user_groups_non_iid(targets, num_users, n_class=2, num_samples=300, rate_unbalance=1):
+def get_user_groups_non_iid(targets, num_users, n_class=2, num_samples=250, rate_unbalance=1):
     num_shards_train, num_imgs_train = int(len(targets) / num_samples), num_samples
     num_classes = 10
     assert (n_class * num_users <= num_shards_train)
