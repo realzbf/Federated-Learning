@@ -124,6 +124,8 @@ class Client:
         self.num_classes_dict = num_classes_dict
         self.args = args
         self.uad_loss = UADLoss(num_clients=args.num_users).to(self.device)
+        for param in self.poster_model.feature_extractor.parameters():
+            param.requires_grad = False
         self.poster_optimizer = torch.optim.SGD(self.poster_model.parameters(), lr=self.learning_rate,
                                                 momentum=momentum, weight_decay=weight_decay)
         self.discriminator_loss = DiscriminatorLoss(num_group_clients=num_group_clients).to(self.device)
@@ -144,8 +146,6 @@ class Client:
         self.poster_model.load_state_dict(self.prior_model.state_dict())
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
-            y_hat = self.poster_model(data).to(self.device)
-            cls = self.criterion(y_hat, target)  # 交叉损失
 
             # 计算UAD损失
             d_j_batch_list = []
@@ -158,22 +158,23 @@ class Client:
                 f_j_batch = other_model.feature.to(self.device)
                 d_j_batch = self.discriminator(f_j_batch)[:, group_clients[j].global_index].to(self.device)
                 d_j_batch_list.append(d_j_batch.view(1, -1))
-            d_j_batch = torch.cat(d_j_batch_list).T.detach().to(self.device)
-            f_self = self.poster_model.feature_extractor(data).to(self.device)
-            d_self = self.discriminator(f_self).detach().to(self.device)
-            extractor_loss = cls + self.uad_loss(d_self)
 
-            # 优化特征提取器
+            # 优化特征生成器
             self.poster_optimizer.zero_grad()
+            y_hat = self.poster_model(data).to(self.device)
+            cls = self.criterion(y_hat, target)  # 交叉损失
+            f_self = self.poster_model.feature.to(self.device)
+            d_self = self.discriminator(f_self).to(self.device)
+            extractor_loss = cls + self.uad_loss(d_self)
             extractor_loss.backward()
             self.poster_optimizer.step()
-
-            # 优化判别器
-            f_self = self.poster_model.feature_extractor(data).detach().to(self.device)
-            d_self = self.discriminator(f_self)[:, self.global_index].view(-1, 1).to(self.device)
             extractor_batch_loss.append(extractor_loss.item())
-            discriminator_loss = self.discriminator_loss(d_self, d_j_batch)
+
+            # 训练特征判别器
             self.discriminator_optimizer.zero_grad()
+            d_self = self.discriminator(f_self.detach()).to(self.device)
+            d_j_batch = torch.cat(d_j_batch_list).T.detach().to(self.device)
+            discriminator_loss = self.discriminator_loss(d_self, d_j_batch)
             discriminator_loss.backward()
             discriminator_batch_loss.append(discriminator_loss.item())
             self.discriminator_optimizer.step()
