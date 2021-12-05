@@ -18,8 +18,6 @@ from utils.data import DatasetSplit
 from env import get_model
 import logging
 
-logging.basicConfig(filename="log_fmnist_cnn.txt", level=logging.INFO)
-
 
 class Discriminator(nn.Module):
     def __init__(self, length_feature=10, num_clients=100):
@@ -212,6 +210,7 @@ def get_figure(results, labels):
 
 from env import test_loader, train_loader, args, user_groups
 
+logging.basicConfig(filename="log_{}_cnn.txt".format(args.dataset), level=logging.INFO)
 """分组"""
 num_clients = args.num_users
 num_group_clients = int(args.frac * num_clients)
@@ -224,6 +223,7 @@ def get_group(idxs):
             return Counter(train_loader.dataset.targets[user_groups[idx]].detach().numpy())
         else:
             return Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy())
+
     return [
         Client(train_dl=DataLoader(
             DatasetSplit(train_loader.dataset, user_groups[idx]),
