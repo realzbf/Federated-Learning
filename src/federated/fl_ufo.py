@@ -252,7 +252,7 @@ avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_load
 
 epoch_acc = []
 
-for round in range(500):
+for round in range(1000):
     indices = random.sample(range(num_clients), num_group_clients)
     avg_group = get_group(indices)
     avg_weights = []

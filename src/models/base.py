@@ -121,7 +121,7 @@ cfg = {
 
 
 class VGG(nn.Module):
-    def __init__(self, vgg_name='VGG11'):
+    def __init__(self, vgg_name='VGG16'):
         super(VGG, self).__init__()
         self.feature_extractor = self._make_layers(cfg[vgg_name])
         self.classifier = nn.Linear(512, 10)
