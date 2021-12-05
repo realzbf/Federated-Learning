@@ -13,7 +13,7 @@ if __name__ == '__main__':
     epoch_train_acc = []
     epoch_test_acc = []
     epoch_train_loss = []
-    args.epochs = 100
+    args.epochs = 500
     for epoch in tqdm(range(args.epochs)):
         train_avg_loss, train_acc = model_handler.train(epoch, print_log=True)
         test_avg_loss, test_acc = model_handler.validation()
