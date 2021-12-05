@@ -124,7 +124,7 @@ class Client:
         self.num_classes_dict = num_classes_dict
         self.args = args
         self.uad_loss = UADLoss(num_clients=args.num_users).to(self.device)
-        for param in self.poster_model.feature_extractor.parameters():
+        for param in self.poster_model.classifier.parameters():
             param.requires_grad = False
         self.poster_optimizer = torch.optim.SGD(self.poster_model.parameters(), lr=self.learning_rate,
                                                 momentum=momentum, weight_decay=weight_decay)
@@ -279,12 +279,11 @@ for round in range(1000):
     for u in range(10):
         for idx, client in enumerate(ufo_group):
             loss, acc = client.prior_model_train()
-        for idx, client in enumerate(ufo_group):
-            # 训练后模型
-            extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
-            print("round {} epoch {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-                round, u, idx, extractor_loss, discriminator_loss))
-    for client in ufo_group:
+    # 训练后模型
+    for idx, client in enumerate(ufo_group):
+        extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
+        print("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
+            round, idx, extractor_loss, discriminator_loss))
         ufo_weights.append(client.poster_model.state_dict())
 
     avg_global_weights = average_weights(avg_weights)
