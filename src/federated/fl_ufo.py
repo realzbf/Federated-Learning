@@ -82,7 +82,7 @@ def get_clients_batch_predict(X, clients, args, num_classes=10):
     num_classes = num_classes
     batch_predict = np.zeros((batch_size, num, num_classes))
     for client_idx in range(num):
-        client_batch_predict = clients[client_idx].prior_model(X).detach().numpy()
+        client_batch_predict = clients[client_idx].prior_model(X).cpu().detach().numpy()
         for idx, pred in enumerate(client_batch_predict):
             batch_predict[idx, client_idx, :] = pred
     return batch_predict
@@ -147,7 +147,7 @@ class Client:
         cgr_loss_list = []
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
-            y_wave = F.softmax(get_mixed_predict(data.cpu(), group_clients, self.args), dim=1).to(self.device)
+            y_wave = F.softmax(get_mixed_predict(data, group_clients, self.args), dim=1).to(self.device)
             cgr_loss = self.cgr_loss(y_wave.log(), self.poster_model(data))
             cgr_loss_list.append(cgr_loss)
             self.poster_optimizer.zero_grad()
