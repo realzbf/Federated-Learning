@@ -4,11 +4,11 @@ import argparse
 def args_parser():
     parser = argparse.ArgumentParser()
     # 数据集配置
-    parser.add_argument('--dataset', type=str, default='fmnist', help="name \
+    parser.add_argument('--dataset', type=str, default='cifar', help="name \
                             of dataset")
-    parser.add_argument('--num_samples', type=int, default=300,
+    parser.add_argument('--num_samples', type=int, default=250,
                         help="number of samples")
-    parser.add_argument('--num_class', type=int, default=2,
+    parser.add_argument('--num_classes', type=int, default=2,
                         help="number of class")
 
     # 客户端配置
@@ -16,7 +16,7 @@ def args_parser():
                         help="number of users: K")
     parser.add_argument('--local_ep', type=int, default=10,
                         help="the number of local epochs: E")
-    parser.add_argument('--local_bs', type=int, default=10,
+    parser.add_argument('--local_bs', type=int, default=50,
                         help="local batch size: B")
 
     # 模型配置
@@ -29,7 +29,7 @@ def args_parser():
                         help='SGD weight_decay (default: 0.0002)')
 
     # 全局配置
-    parser.add_argument('--rounds', type=int, default=100,
+    parser.add_argument('--rounds', type=int, default=1000,
                         help="number of rounds of training")
     parser.add_argument('--frac', type=float, default=0.1,
                         help='the fraction of clients: C')

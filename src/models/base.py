@@ -42,7 +42,7 @@ class CNNMnist(nn.Module):
             nn.ReLU(),
             nn.Dropout(),
             nn.Linear(50, 10),
-            nn.LogSoftmax(dim=1)
+            nn.Softmax(dim=1)
         )
         self.feature = None
 
@@ -77,7 +77,7 @@ class CNNFashionMnist(nn.Module):
         x = self.feature_extractor(x)
         self.feature = x.detach()
         x = x.view(x.size(0), -1)
-        return self.classifier(x)
+        return F.softmax(self.classifier(x), dim=1)
 
 
 class CNNCifar10(nn.Module):

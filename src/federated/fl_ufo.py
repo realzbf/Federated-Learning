@@ -60,8 +60,8 @@ class DiscriminatorLoss(nn.Module):
         return torch.div(loss.sum(), loss.shape[0])
 
 
-def get_clients_p(clients, args):
-    num_classes = args.num_classes
+def get_clients_p(clients, num_classes):
+    num_classes = num_classes
     total_count = Counter()
     num = len(clients)
     for i in range(num):
@@ -76,21 +76,21 @@ def get_clients_p(clients, args):
     return np.array(result)
 
 
-def get_clients_batch_predict(X, clients, args):
+def get_clients_batch_predict(X, clients, args, num_classes=10):
     num = len(clients)
     batch_size = args.local_bs
-    num_classes = args.num_classes
+    num_classes = num_classes
     batch_predict = np.zeros((batch_size, num, num_classes))
     for client_idx in range(num):
-        client_batch_predict = clients[client_idx].model(X).detach().numpy()
+        client_batch_predict = clients[client_idx].prior_model(X).detach().numpy()
         for idx, pred in enumerate(client_batch_predict):
             batch_predict[idx, client_idx, :] = pred
     return batch_predict
 
 
-def get_mixed_predict(X, clients, args):
-    clients_batch_predict = get_clients_batch_predict(X, clients, args)
-    clients_p = get_clients_p(clients, args)
+def get_mixed_predict(X, clients, args, num_classes=10):
+    clients_batch_predict = get_clients_batch_predict(X, clients, args, num_classes)
+    clients_p = get_clients_p(clients, num_classes)
     result = []
     for clients_predict in clients_batch_predict:
         result.append(F.softmax(torch.tensor(np.sum(clients_predict * clients_p, axis=0)), dim=0).detach().tolist())
@@ -129,18 +129,31 @@ class Client:
         self.num_classes_dict = num_classes_dict
         self.args = args
         self.uad_loss = UADLoss(num_clients=args.num_users).to(self.device)
-        for param in self.poster_model.classifier.parameters():
-            param.requires_grad = False
+        # for param in self.poster_model.classifier.parameters():
+        #     param.requires_grad = False
         self.poster_optimizer = torch.optim.SGD(self.poster_model.parameters(), lr=self.learning_rate,
                                                 momentum=momentum, weight_decay=weight_decay)
         self.discriminator_loss = DiscriminatorLoss(num_group_clients=num_group_clients).to(self.device)
         self.discriminator_optimizer = torch.optim.SGD(self.discriminator.parameters(), lr=self.learning_rate,
                                                        momentum=momentum, weight_decay=weight_decay)
+        self.cgr_loss = torch.nn.KLDivLoss(reduction="mean")
 
     def prior_model_train(self):
         prior_model_handler = ModelHandler(train_dl=self.train_dl, test_dl=self.train_dl, model=self.prior_model,
                                            args=args, momentum=0.9, weight_decay=0.0002)
         return prior_model_handler.train()
+
+    def train_with_cgr(self, group_clients):
+        cgr_loss_list = []
+        for batch_idx, (data, target) in enumerate(self.train_dl):
+            data, target = data.to(self.device), target.to(self.device)
+            y_wave = F.softmax(get_mixed_predict(data, group_clients, self.args), dim=1)
+            cgr_loss = self.cgr_loss(y_wave.log(), self.poster_model(data))
+            cgr_loss_list.append(cgr_loss)
+            self.poster_optimizer.zero_grad()
+            cgr_loss.backward()
+            self.poster_optimizer.step()
+        return sum(cgr_loss_list) / len(cgr_loss_list)
 
     def poster_model_train(self, group_clients):
         discriminator_batch_loss = []
@@ -149,9 +162,9 @@ class Client:
         self.poster_model.train()
         self.discriminator.eval()
         self.poster_model.load_state_dict(self.prior_model.state_dict())
+        # use cgr loss
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
-
             # # 计算UAD损失
             # d_j_batch_list = []
             # for j in range(num_groups):
@@ -254,7 +267,8 @@ def get_figure(results, labels):
 
 from env import test_loader, train_loader, args, user_groups
 
-logging.basicConfig(filename="log_{}_cnn.txt".format(args.dataset), level=logging.INFO)
+logging.basicConfig(filename=os.path.join(*[BASE_DIR, "logs", "log_{}_cnn.txt".format(args.dataset)]),
+                    level=logging.INFO)
 """分组"""
 num_clients = args.num_users
 num_group_clients = int(args.frac * num_clients)
@@ -295,7 +309,7 @@ avg_global_model_handler = ModelHandler(train_dl=train_loader, test_dl=test_load
 
 epoch_acc = []
 
-for round in range(500):
+for round in range(args.rounds):
     indices = random.sample(range(num_clients), num_group_clients)
     avg_group = get_group(indices)
     avg_weights = []
@@ -328,6 +342,9 @@ for round in range(500):
         extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
         print("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
             round, idx, extractor_loss, discriminator_loss))
+        cgr_loss = client.train_with_cgr(ufo_group)
+        print("round {}:, client {} cgr_loss = {:.6f}".format(
+            round, idx, cgr_loss))
         ufo_weights.append(client.poster_model.state_dict())
 
     avg_global_weights = average_weights(avg_weights)
