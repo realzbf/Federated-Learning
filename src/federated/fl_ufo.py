@@ -19,18 +19,22 @@ from env import get_model
 import logging
 
 
+# for batch_idx, (data, target) in enumerate(group_clients[0].train_dl):
+#     group_clients[0].prior_model(data)
+#     f_self = group_clients[0].prior_model.feature.to(self.device)
+#     d_self = self.discriminator(f_self).to(self.device)
+#     print(d_self.argmax(dim=1))
 class Discriminator(nn.Module):
     def __init__(self, length_feature=10, num_clients=100):
         super(Discriminator, self).__init__()
-        self.fc1 = nn.Linear(length_feature, 200)
-        self.fc2 = nn.Linear(200, 64)
-        self.fc3 = nn.Linear(64, num_clients)
+        self.fc1 = nn.Linear(length_feature, length_feature)
+        self.fc2 = nn.Linear(length_feature, num_clients)
 
     def forward(self, x):
         x = x.view(-1, x.shape[1] * x.shape[2] * x.shape[3])
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return F.softmax(self.fc3(x), dim=1)
+        x = F.relu(self.fc1(x), inplace=True)
+        x = F.relu(self.fc2(x), inplace=True)
+        return F.softmax(x, dim=1)
 
 
 class UADLoss(nn.Module):
@@ -40,7 +44,8 @@ class UADLoss(nn.Module):
 
     def forward(self, t):
         eps = 1e-7
-        return torch.div(-1, self.num_clients) * torch.sum(torch.log(t + eps))
+        batch_loss = torch.div(-1, self.num_clients) * torch.sum(torch.log(t + eps), dim=1)
+        return torch.div(batch_loss.sum(), batch_loss.shape[0])
 
 
 class DiscriminatorLoss(nn.Module):
@@ -52,7 +57,7 @@ class DiscriminatorLoss(nn.Module):
         eps = 1e-7
         loss = -torch.log(d_self + eps) - torch.div(1, self.num_group_clients - 1) * \
                torch.sum(torch.log(d_other + eps), dim=1).view(-1, 1)
-        return torch.div(loss.sum(), d_self.shape[0])
+        return torch.div(loss.sum(), loss.shape[0])
 
 
 def get_clients_p(clients, args):
@@ -141,9 +146,47 @@ class Client:
         discriminator_batch_loss = []
         extractor_batch_loss = []
         num_groups = len(group_clients)
-        self.discriminator.train()
         self.poster_model.train()
+        self.discriminator.eval()
         self.poster_model.load_state_dict(self.prior_model.state_dict())
+        for batch_idx, (data, target) in enumerate(self.train_dl):
+            data, target = data.to(self.device), target.to(self.device)
+
+            # # 计算UAD损失
+            # d_j_batch_list = []
+            # for j in range(num_groups):
+            #     if j == self.group_index:
+            #         continue
+            #     assert hasattr(group_clients[j], "prior_model")
+            #     other_model = group_clients[j].prior_model
+            #     other_model(data)
+            #     f_j_batch = other_model.feature.to(self.device)
+            #     d_j_batch = self.discriminator(f_j_batch)[:, group_clients[j].global_index].to(self.device)
+            #     d_j_batch_list.append(d_j_batch.view(1, -1))
+
+            # 优化特征生成器
+            self.poster_optimizer.zero_grad()
+            y_hat = self.poster_model(data).to(self.device)
+            cls = self.criterion(y_hat, target)  # 交叉损失
+            f_self = self.poster_model.feature.to(self.device)
+            d_self = self.discriminator(f_self).to(self.device)
+            extractor_loss = cls + self.uad_loss(d_self)
+            extractor_loss.backward()
+            self.poster_optimizer.step()
+            extractor_batch_loss.append(extractor_loss.item())
+
+            # # 训练特征判别器
+            # self.discriminator_optimizer.zero_grad()
+            # d_self = self.discriminator(f_self.detach())[:, self.global_index].to(self.device)
+            # d_j_batch = torch.cat(d_j_batch_list).T.detach().to(self.device)
+            # discriminator_loss = self.discriminator_loss(d_self, d_j_batch)
+            # discriminator_loss.backward()
+            # discriminator_batch_loss.append(discriminator_loss.item())
+            # self.discriminator_optimizer.step()
+            # a = 1
+
+        self.poster_model.eval()
+        self.discriminator.train()
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
 
@@ -159,20 +202,20 @@ class Client:
                 d_j_batch = self.discriminator(f_j_batch)[:, group_clients[j].global_index].to(self.device)
                 d_j_batch_list.append(d_j_batch.view(1, -1))
 
-            # 优化特征生成器
-            self.poster_optimizer.zero_grad()
+            # # 优化特征生成器
+            # self.poster_optimizer.zero_grad()
             y_hat = self.poster_model(data).to(self.device)
-            cls = self.criterion(y_hat, target)  # 交叉损失
+            # # cls = self.criterion(y_hat, target)  # 交叉损失
             f_self = self.poster_model.feature.to(self.device)
-            d_self = self.discriminator(f_self).to(self.device)
-            extractor_loss = cls + self.uad_loss(d_self)
-            extractor_loss.backward()
-            self.poster_optimizer.step()
-            extractor_batch_loss.append(extractor_loss.item())
+            # d_self = self.discriminator(f_self).to(self.device)
+            # extractor_loss = self.uad_loss(d_self)
+            # extractor_loss.backward()
+            # self.poster_optimizer.step()
+            # extractor_batch_loss.append(extractor_loss.item())
 
             # 训练特征判别器
             self.discriminator_optimizer.zero_grad()
-            d_self = self.discriminator(f_self.detach()).to(self.device)
+            d_self = self.discriminator(f_self.detach())[:, self.global_index].to(self.device)
             d_j_batch = torch.cat(d_j_batch_list).T.detach().to(self.device)
             discriminator_loss = self.discriminator_loss(d_self, d_j_batch)
             discriminator_loss.backward()
@@ -279,6 +322,7 @@ for round in range(500):
     for u in range(10):
         for idx, client in enumerate(ufo_group):
             loss, acc = client.prior_model_train()
+
     # 训练后模型
     for idx, client in enumerate(ufo_group):
         extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)

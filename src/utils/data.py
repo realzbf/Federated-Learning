@@ -24,8 +24,9 @@ def split_and_shuffle_labels(y_data, seed):
     return label_dict
 
 
-def get_user_groups_iid(targets, num_users, seed=2):
+def get_user_groups_iid(targets, args, seed=2):
     labels_dict = split_and_shuffle_labels(targets, seed)
+    num_users = args.num_users
     user_groups_dict = dict()
     for user_id in range(num_users):
         user_groups_dict.update({user_id: np.array([])})
@@ -41,11 +42,14 @@ def get_user_groups_iid(targets, num_users, seed=2):
     return user_groups_dict
 
 
-def get_user_groups_non_iid(targets, num_users, n_class=2, num_samples=300, rate_unbalance=1):
+def get_user_groups_non_iid(targets, args, rate_unbalance=1):
+    num_users = args.num_users
+    num_samples = args.num_samples
+    num_class = args.num_class
     num_shards_train, num_imgs_train = int(len(targets) / num_samples), num_samples
     num_classes = 10
-    assert (n_class * num_users <= num_shards_train)
-    assert (n_class <= num_classes)
+    assert (num_class * num_users <= num_shards_train)
+    assert (num_class <= num_classes)
     idx_shard = [i for i in range(num_shards_train)]
     user_groups = {i: np.array([]) for i in range(num_users)}
     idxs = np.arange(num_shards_train * num_imgs_train)
@@ -58,7 +62,7 @@ def get_user_groups_non_iid(targets, num_users, n_class=2, num_samples=300, rate
 
     for i in range(num_users):
         user_labels = np.array([])
-        rand_set = set(np.random.choice(idx_shard, n_class, replace=False))
+        rand_set = set(np.random.choice(idx_shard, num_class, replace=False))
         idx_shard = list(set(idx_shard) - rand_set)
         unbalance_flag = 0
         for rand in rand_set:
@@ -113,9 +117,9 @@ def get_dataset(args, download=True):
     else:
         raise Exception(f"无数据集：{args.dataset}")
     if not args.iid:
-        user_groups = get_user_groups_non_iid(train_dataset.targets, args.num_users)
+        user_groups = get_user_groups_non_iid(train_dataset.targets, args)
     else:
-        user_groups = get_user_groups_iid(train_dataset.targets, args.num_users)
+        user_groups = get_user_groups_iid(train_dataset.targets, args)
     return train_dataset, test_dataset, user_groups
 
 
