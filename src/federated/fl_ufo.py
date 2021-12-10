@@ -136,7 +136,7 @@ class Client:
         self.discriminator_loss = DiscriminatorLoss(num_group_clients=num_group_clients).to(self.device)
         self.discriminator_optimizer = torch.optim.SGD(self.discriminator.parameters(), lr=self.learning_rate,
                                                        momentum=momentum, weight_decay=weight_decay)
-        self.cgr_loss = torch.nn.KLDivLoss(reduction="mean")
+        self.cgr_loss = torch.nn.KLDivLoss(reduction="mean").to(self.device)
 
     def prior_model_train(self):
         prior_model_handler = ModelHandler(train_dl=self.train_dl, test_dl=self.train_dl, model=self.prior_model,
@@ -147,7 +147,7 @@ class Client:
         cgr_loss_list = []
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
-            y_wave = F.softmax(get_mixed_predict(data, group_clients, self.args), dim=1)
+            y_wave = F.softmax(get_mixed_predict(data.cpu(), group_clients, self.args), dim=1).to(self.device)
             cgr_loss = self.cgr_loss(y_wave.log(), self.poster_model(data))
             cgr_loss_list.append(cgr_loss)
             self.poster_optimizer.zero_grad()
