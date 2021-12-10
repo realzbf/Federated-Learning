@@ -103,22 +103,27 @@ class Client:
         self.global_index = global_index,
         self.group_index = group_index
         self.device = device
+        self.train_dl = train_dl
+        self.learning_rate = args.lr
+        self.momentum = momentum
+
         if not model:
             self.model = get_model(args)
         else:
             self.model = model
+
         self.prior_model = copy.deepcopy(self.model).to(self.device)
-        self.train_dl = train_dl
-        self.poster_model = copy.deepcopy(self.model).to(self.device)
+        self.poster_model = copy.deepcopy(self.model)
+
         batch = None
         for batch, label in train_dl:
             batch, label = batch.to(self.device), label.to(self.device)
             break
         shape = self.poster_model.feature_extractor(batch).shape
+
         self.discriminator = Discriminator(length_feature=shape[1] * shape[2] * shape[3],
-                                           num_clients=args.num_users).to(self.device)
-        self.learning_rate = args.lr
-        self.momentum = momentum
+                                           num_clients=args.num_users)
+
         if args.optimizer == 'sgd':
             self.prior_optimizer = torch.optim.SGD(self.prior_model.parameters(), lr=self.learning_rate,
                                                    momentum=momentum, weight_decay=weight_decay)
@@ -138,6 +143,8 @@ class Client:
                                                        momentum=momentum, weight_decay=weight_decay)
         self.cgr_loss = torch.nn.KLDivLoss(reduction="mean").to(self.device)
 
+        self.model = None
+
     def prior_model_train(self):
         prior_model_handler = ModelHandler(train_dl=self.train_dl, test_dl=self.train_dl, model=self.prior_model,
                                            args=args, momentum=0.9, weight_decay=0.0002)
@@ -145,6 +152,7 @@ class Client:
 
     def train_with_cgr(self, group_clients):
         cgr_loss_list = []
+        self.poster_model = self.poster_model.to(self.device)
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
             y_wave = F.softmax(get_mixed_predict(data, group_clients, self.args), dim=1).to(self.device)
@@ -153,12 +161,17 @@ class Client:
             self.poster_optimizer.zero_grad()
             cgr_loss.backward()
             self.poster_optimizer.step()
+        self.poster_model = self.poster_model.to("cpu")
         return sum(cgr_loss_list) / len(cgr_loss_list)
 
     def poster_model_train(self, group_clients):
         discriminator_batch_loss = []
         extractor_batch_loss = []
         num_groups = len(group_clients)
+
+        self.discriminator = self.discriminator.to(self.device)
+        self.poster_model = self.poster_model.to(self.device)
+
         self.poster_model.train()
         self.discriminator.eval()
         self.poster_model.load_state_dict(self.prior_model.state_dict())
@@ -234,6 +247,9 @@ class Client:
             discriminator_loss.backward()
             discriminator_batch_loss.append(discriminator_loss.item())
             self.discriminator_optimizer.step()
+
+        self.discriminator = self.discriminator.to("cpu")
+        self.poster_model = self.poster_model.to("cpu")
 
         return sum(extractor_batch_loss) / len(extractor_batch_loss), sum(discriminator_batch_loss) / len(
             discriminator_batch_loss)
