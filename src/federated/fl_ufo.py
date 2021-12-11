@@ -156,7 +156,10 @@ class Client:
         for batch_idx, (data, target) in enumerate(self.train_dl):
             data, target = data.to(self.device), target.to(self.device)
             y_wave = F.softmax(get_mixed_predict(data, group_clients, self.args), dim=1).to(self.device)
-            cgr_loss = self.cgr_loss(y_wave.log(), self.poster_model(data))
+            y_hat = self.poster_model(data)
+            if not int(y_hat.sum().item()) == y_hat.shape[0]:
+                y_hat = F.softmax(y_hat)
+            cgr_loss = self.cgr_loss(y_wave.log(), y_hat)
             cgr_loss_list.append(cgr_loss)
             self.poster_optimizer.zero_grad()
             cgr_loss.backward()
@@ -291,13 +294,14 @@ num_group_clients = int(args.frac * num_clients)
 num_groups = num_clients // num_group_clients
 
 
-def get_group(idxs):
-    def get_num_classes_dict(idx):
-        if isinstance(train_loader.dataset.targets, torch.Tensor):
-            return Counter(train_loader.dataset.targets[user_groups[idx]].detach().numpy())
-        else:
-            return Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy())
+def get_num_classes_dict(idx):
+    if isinstance(train_loader.dataset.targets, torch.Tensor):
+        return Counter(train_loader.dataset.targets[user_groups[idx]].detach().numpy())
+    else:
+        return Counter(torch.tensor(train_loader.dataset.targets)[user_groups[idx]].detach().numpy())
 
+
+def get_group(idxs):
     return [
         Client(train_dl=DataLoader(
             DatasetSplit(train_loader.dataset, user_groups[idx]),
@@ -332,9 +336,17 @@ for round in range(args.rounds):
     loss, acc = 0, 0
 
     # 联邦平均
-    for client in avg_group:
-        # 下载模型
-        client.prior_model.load_state_dict(avg_global_model_handler.model.state_dict())
+    for group_idx, global_idx in enumerate(indices):
+        client = Client(train_dl=DataLoader(
+            DatasetSplit(train_loader.dataset, user_groups[global_idx]),
+            batch_size=args.local_bs, shuffle=True),
+            args=args,
+            num_classes_dict=get_num_classes_dict(global_idx),
+            group_index=0,  # 后续需动态修改
+            num_group_clients=num_group_clients,
+            global_index=group_idx,
+            model=avg_global_model_handler.model
+        )
         for u in range(10):
             loss, acc = client.prior_model_train()
         avg_weights.append(client.prior_model.state_dict())
@@ -356,10 +368,10 @@ for round in range(args.rounds):
     # 训练后模型
     for idx, client in enumerate(ufo_group):
         extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
-        print("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
+        logging.info("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
             round, idx, extractor_loss, discriminator_loss))
         cgr_loss = client.train_with_cgr(ufo_group)
-        print("round {}:, client {} cgr_loss = {:.6f}".format(
+        logging.info("round {}:, client {} cgr_loss = {:.6f}".format(
             round, idx, cgr_loss))
         ufo_weights.append(client.poster_model.state_dict())
 
