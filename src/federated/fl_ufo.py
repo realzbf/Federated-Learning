@@ -336,20 +336,20 @@ for round in range(args.rounds):
     loss, acc = 0, 0
 
     # 联邦平均
-    # for group_idx, global_idx in enumerate(indices):
-    #     client = Client(train_dl=DataLoader(
-    #         DatasetSplit(train_loader.dataset, user_groups[global_idx]),
-    #         batch_size=args.local_bs, shuffle=True),
-    #         args=args,
-    #         num_classes_dict=get_num_classes_dict(global_idx),
-    #         group_index=0,  # 后续需动态修改
-    #         num_group_clients=num_group_clients,
-    #         global_index=group_idx,
-    #         model=avg_global_model_handler.model
-    #     )
-    #     for u in range(10):
-    #         loss, acc = client.prior_model_train()
-    #     avg_weights.append(client.prior_model.state_dict())
+    for group_idx, global_idx in enumerate(indices):
+        client = Client(train_dl=DataLoader(
+            DatasetSplit(train_loader.dataset, user_groups[global_idx]),
+            batch_size=args.local_bs, shuffle=True),
+            args=args,
+            num_classes_dict=get_num_classes_dict(global_idx),
+            group_index=0,  # 后续需动态修改
+            num_group_clients=num_group_clients,
+            global_index=group_idx,
+            model=avg_global_model_handler.model
+        )
+        for u in range(10):
+            loss, acc = client.prior_model_train()
+        avg_weights.append(client.prior_model.state_dict())
 
     # UFO
     ufo_weights = []
@@ -367,19 +367,19 @@ for round in range(args.rounds):
 
     # 训练后模型
     for idx, client in enumerate(ufo_group):
-        # extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
-        # logging.info("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-        #     round, idx, extractor_loss, discriminator_loss))
-        cgr_loss = client.train_with_cgr(ufo_group)
-        logging.info("round {}:, client {} cgr_loss = {:.6f}".format(
-            round, idx, cgr_loss))
+        extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
+        logging.info("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
+            round, idx, extractor_loss, discriminator_loss))
+        # cgr_loss = client.train_with_cgr(ufo_group)
+        # logging.info("round {}:, client {} cgr_loss = {:.6f}".format(
+        #     round, idx, cgr_loss))
         ufo_weights.append(client.poster_model.state_dict())
 
-    # avg_global_weights = average_weights(avg_weights)
-    # avg_global_model_handler.model.load_state_dict(avg_global_weights)
-    # avg_loss, avg_acc = avg_global_model_handler.validation()
-    # logging.info("round {} FedAVG global acc={:.3f}".format(round, avg_acc))
-    avg_acc=0
+    avg_global_weights = average_weights(avg_weights)
+    avg_global_model_handler.model.load_state_dict(avg_global_weights)
+    avg_loss, avg_acc = avg_global_model_handler.validation()
+    logging.info("round {} FedAVG global acc={:.3f}".format(round, avg_acc))
+
     ufo_global_weights = average_weights(ufo_weights)
     ufo_global_model_handler.model.load_state_dict(ufo_global_weights)
     ufo_loss, ufo_acc = ufo_global_model_handler.validation()
