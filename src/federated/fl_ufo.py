@@ -371,9 +371,9 @@ for round in range(args.rounds):
 
     # 训练后模型
     for idx, client in enumerate(ufo_group):
-        extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
-        logging.info("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
-            round, idx, extractor_loss, discriminator_loss))
+        # extractor_loss, discriminator_loss = client.poster_model_train(ufo_group)
+        # logging.info("round {}:, client {} extractor_loss = {:.6f} discriminator_loss = {:.6f}".format(
+        #     round, idx, extractor_loss, discriminator_loss))
         cgr_loss = client.train_with_cgr(ufo_group)
         logging.info("round {}:, client {} cgr_loss = {:.6f}".format(
             round, idx, cgr_loss))
