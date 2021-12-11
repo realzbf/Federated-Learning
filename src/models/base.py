@@ -80,7 +80,7 @@ class CNNFashionMnist(nn.Module):
         x = self.feature_extractor(x)
         self.feature = x.detach()
         x = x.view(x.size(0), -1)
-        return F.softmax(self.classifier(x), dim=1)
+        return self.classifier(x)
 
 
 class CNNCifar10(nn.Module):

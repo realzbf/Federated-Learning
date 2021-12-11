@@ -6,7 +6,7 @@ def args_parser():
     # 数据集配置
     parser.add_argument('--dataset', type=str, default='mnist', help="name \
                             of dataset")
-    parser.add_argument('--num_samples', type=int, default=300,
+    parser.add_argument('--num_samples', type=int, default=250,
                         help="number of samples")
     parser.add_argument('--num_classes', type=int, default=2,
                         help="number of class")
@@ -16,7 +16,7 @@ def args_parser():
                         help="number of users: K")
     parser.add_argument('--local_ep', type=int, default=10,
                         help="the number of local epochs: E")
-    parser.add_argument('--local_bs', type=int, default=10,
+    parser.add_argument('--local_bs', type=int, default=50,
                         help="local batch size: B")
 
     # 模型配置
