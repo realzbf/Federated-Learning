@@ -4,7 +4,7 @@ import argparse
 def args_parser():
     parser = argparse.ArgumentParser()
     # 数据集配置
-    parser.add_argument('--dataset', type=str, default='fmnist', help="name \
+    parser.add_argument('--dataset', type=str, default='mnist', help="name \
                             of dataset")
     parser.add_argument('--num_samples', type=int, default=300,
                         help="number of samples")
@@ -29,7 +29,7 @@ def args_parser():
                         help='SGD weight_decay (default: 0.0002)')
 
     # 全局配置
-    parser.add_argument('--rounds', type=int, default=1000,
+    parser.add_argument('--rounds', type=int, default=300,
                         help="number of rounds of training")
     parser.add_argument('--frac', type=float, default=0.1,
                         help='the fraction of clients: C')
