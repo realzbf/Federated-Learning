@@ -157,14 +157,8 @@ class Client:
             data, target = data.to(self.device), target.to(self.device)
             y_wave = F.softmax(get_mixed_predict(data, group_clients, self.args), dim=1).to(self.device)
             y_hat = self.poster_model(data)
-            logging.info("y_wave:"+str(y_wave))
-            logging.info("y_hat:"+str(y_hat))
-            try:
-                if not (int(y_hat.sum().item()) == y_hat.shape[0]):
-                    y_hat = F.softmax(y_hat, dim=1)
-            except:
-                logging.info(str(cgr_loss_list))
-                exit(0)
+            # logging.info("y_wave:"+str(y_wave))
+            # logging.info("y_hat:"+str(y_hat))
             cgr_loss = self.cgr_loss(y_wave.log(), y_hat)
             cgr_loss_list.append(cgr_loss)
             self.poster_optimizer.zero_grad()
@@ -342,20 +336,20 @@ for round in range(args.rounds):
     loss, acc = 0, 0
 
     # 联邦平均
-    for group_idx, global_idx in enumerate(indices):
-        client = Client(train_dl=DataLoader(
-            DatasetSplit(train_loader.dataset, user_groups[global_idx]),
-            batch_size=args.local_bs, shuffle=True),
-            args=args,
-            num_classes_dict=get_num_classes_dict(global_idx),
-            group_index=0,  # 后续需动态修改
-            num_group_clients=num_group_clients,
-            global_index=group_idx,
-            model=avg_global_model_handler.model
-        )
-        for u in range(10):
-            loss, acc = client.prior_model_train()
-        avg_weights.append(client.prior_model.state_dict())
+    # for group_idx, global_idx in enumerate(indices):
+    #     client = Client(train_dl=DataLoader(
+    #         DatasetSplit(train_loader.dataset, user_groups[global_idx]),
+    #         batch_size=args.local_bs, shuffle=True),
+    #         args=args,
+    #         num_classes_dict=get_num_classes_dict(global_idx),
+    #         group_index=0,  # 后续需动态修改
+    #         num_group_clients=num_group_clients,
+    #         global_index=group_idx,
+    #         model=avg_global_model_handler.model
+    #     )
+    #     for u in range(10):
+    #         loss, acc = client.prior_model_train()
+    #     avg_weights.append(client.prior_model.state_dict())
 
     # UFO
     ufo_weights = []
@@ -381,11 +375,11 @@ for round in range(args.rounds):
             round, idx, cgr_loss))
         ufo_weights.append(client.poster_model.state_dict())
 
-    avg_global_weights = average_weights(avg_weights)
-    avg_global_model_handler.model.load_state_dict(avg_global_weights)
-    avg_loss, avg_acc = avg_global_model_handler.validation()
-    logging.info("round {} FedAVG global acc={:.3f}".format(round, avg_acc))
-
+    # avg_global_weights = average_weights(avg_weights)
+    # avg_global_model_handler.model.load_state_dict(avg_global_weights)
+    # avg_loss, avg_acc = avg_global_model_handler.validation()
+    # logging.info("round {} FedAVG global acc={:.3f}".format(round, avg_acc))
+    avg_acc=0
     ufo_global_weights = average_weights(ufo_weights)
     ufo_global_model_handler.model.load_state_dict(ufo_global_weights)
     ufo_loss, ufo_acc = ufo_global_model_handler.validation()

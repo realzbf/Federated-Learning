@@ -70,7 +70,10 @@ class CNNFashionMnist(nn.Module):
             self.layer1,
             self.layer2
         )
-        self.classifier = nn.Linear(7 * 7 * 32, 10)
+        self.classifier = nn.Sequential(
+            nn.Linear(7 * 7 * 32, 10),
+            nn.Softmax(dim=1)
+        )
         self.feature = None
 
     def forward(self, x):
@@ -124,7 +127,10 @@ class VGG(nn.Module):
     def __init__(self, vgg_name='VGG11'):
         super(VGG, self).__init__()
         self.feature_extractor = self._make_layers(cfg[vgg_name])
-        self.classifier = nn.Linear(512, 10)
+        self.classifier = nn.Sequential(
+            nn.Linear(512, 10),
+            nn.Softmax(dim=1)
+        )
         self.feature = None
 
     def forward(self, x):
