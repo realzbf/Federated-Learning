@@ -12,7 +12,7 @@ def get_model(args):
         if args.dataset == 'mnist':
             model = CNNMnist()
         elif args.dataset == 'fmnist':
-            model = CNNFashionMnist()
+            model = CNNMnist()#CNNFashionMnist()
         elif args.dataset == 'cifar':
             model = VGG()
     elif args.model == 'mlp':
