@@ -157,8 +157,12 @@ class Client:
             data, target = data.to(self.device), target.to(self.device)
             y_wave = F.softmax(get_mixed_predict(data, group_clients, self.args), dim=1).to(self.device)
             y_hat = self.poster_model(data)
-            if not (int(y_hat.sum().item()) == y_hat.shape[0]):
-                y_hat = F.softmax(y_hat, dim=1)
+            try:
+                if not (int(y_hat.sum().item()) == y_hat.shape[0]):
+                    y_hat = F.softmax(y_hat, dim=1)
+            except:
+                logging.info(str(y_hat))
+                exit(0)
             cgr_loss = self.cgr_loss(y_wave.log(), y_hat)
             cgr_loss_list.append(cgr_loss)
             self.poster_optimizer.zero_grad()
