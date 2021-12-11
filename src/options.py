@@ -4,7 +4,7 @@ import argparse
 def args_parser():
     parser = argparse.ArgumentParser()
     # 数据集配置
-    parser.add_argument('--dataset', type=str, default='mnist', help="name \
+    parser.add_argument('--dataset', type=str, default='cifar', help="name \
                             of dataset")
     parser.add_argument('--num_samples', type=int, default=250,
                         help="number of samples")
