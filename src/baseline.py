@@ -7,10 +7,11 @@ from models.base import ModelHandler
 from settings import BASE_DIR
 import logging
 
-logging.basicConfig(filename=os.path.join(*[BASE_DIR, "logs", "baseline.txt"]), level=logging.INFO)
-
 if __name__ == '__main__':
     from env import global_model, test_loader, train_loader, args
+
+    logging.basicConfig(filename=os.path.join(*[BASE_DIR, "logs", "centralized_{}_{}_{}.txt".format(
+        args.dataset, args.model, args.baseline_epochs)]), level=logging.INFO)
 
     model_handler = ModelHandler(train_loader, test_loader, global_model, args)
     epoch_train_acc = []
