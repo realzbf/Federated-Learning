@@ -17,4 +17,6 @@
 /save/nn_mnist_cnn_100.png
 /save/nn_mnist_mlp_10.png
 /save/nn_mnist_mlp_100.png
-*.pyc
+/src/__pycache__/
+/src/models/__pycache__/
+src/untils/__pycache__/
