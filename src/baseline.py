@@ -31,5 +31,5 @@ if __name__ == '__main__':
     plt.ylabel('Accuracy')
     plt.title('Test accuracy')
     save_dir = os.path.join(BASE_DIR, 'save')
-    fig_name = 'nn_{}_{}_{}.png'.format(args.dataset, args.model, args.baseline_epochs)
+    fig_name = 'centralized_{}_{}_{}.png'.format(args.dataset, args.model, args.baseline_epochs)
     plt.savefig(os.path.join(save_dir, fig_name))
