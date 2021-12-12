@@ -4,9 +4,9 @@ import argparse
 def args_parser():
     parser = argparse.ArgumentParser()
     # 数据集配置
-    parser.add_argument('--dataset', type=str, default='fmnist', help="name \
+    parser.add_argument('--dataset', type=str, default='cifar', help="name \
                             of dataset")
-    parser.add_argument('--num_samples', type=int, default=300,
+    parser.add_argument('--num_samples', type=int, default=250,
                         help="number of samples")
     parser.add_argument('--num_classes', type=int, default=2,
                         help="number of class")
@@ -38,7 +38,7 @@ def args_parser():
     parser.add_argument("--optimizer", type=str, default="sgd",
                         help="optimizer")
 
-    parser.add_argument('--baseline_epochs', type=int, default=300,
+    parser.add_argument('--baseline_epochs', type=int, default=500,
                         help="number of epochs of baseline")
 
     args = parser.parse_args()
