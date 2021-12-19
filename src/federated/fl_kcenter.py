@@ -1,18 +1,13 @@
 import copy
-import os
 import random
 
-import numpy as np
-from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
 from torch.utils.data import DataLoader
 
 from federated.fl_base import FL
-from settings import BASE_DIR
-from shortcuts import average_weights, flatten_weight
+from shortcuts import flatten_weight
 from models.base import ModelHandler
 from utils.data import DatasetSplit
-from sklearn.mixture import GaussianMixture
 
 
 class KCenterFL(FL):

@@ -10,9 +10,8 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
-from federated.fl_base import FL
 from federated.shortcuts import average_weights
-from models.base import ModelHandler, CNNMnist
+from models.base import ModelHandler
 from settings import device, BASE_DIR
 from utils.data import DatasetSplit
 from env import get_model

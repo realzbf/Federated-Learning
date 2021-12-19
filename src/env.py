@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 
-from models.base import CNNMnist, CNNFashionMnist, CNNCifar10, MLP, VGG
+from models.base import CNNMnist, MLP, VGG
 from options import args_parser
 from utils.data import get_dataset
 
