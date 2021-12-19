@@ -27,15 +27,15 @@ global_wrapper = None
 
 for i in range(5):
     wrapper = FasterRCNN(
-        task_config=load_json(os.path.join(street_20_tasks_path, "task" + str(i + 1) + ".json"))
+        task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json"))
     )
     total_loss = wrapper.train_one_epoch()
     logging.info("============client: ==============" + str(i + 1))
-    logging.info("train: ", total_loss)
+    logging.info("train: " + str(total_loss))
     total_loss, result = eval(wrapper, test_dataloader, test_num=500)
     map = result['map']
     ap = result['ap']
-    logging.info("eval: ", total_loss, map, ap)
+    logging.info("eval: " + str(total_loss) + str(map) + +str(ap))
     weights.append(wrapper.faster_rcnn.state_dict())
     if global_wrapper is None:
         global_wrapper = wrapper
@@ -46,4 +46,4 @@ global_wrapper.faster_rcnn.load_state_dict(weight)
 total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
 map = result['map']
 ap = result['ap']
-logging.info("eval: ", total_loss, map, ap)
+logging.info("eval: " + str(total_loss) + str(map) + +str(ap))
