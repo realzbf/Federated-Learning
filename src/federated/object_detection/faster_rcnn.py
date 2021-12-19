@@ -1,6 +1,6 @@
 import os
 from settings import BASE_DIR, voc_dir
-
+import torch
 from models.model_wrapper import FasterRCNN, load_json, eval
 from federated.shortcuts import average_weights
 import logging
@@ -34,9 +34,13 @@ for epoch in range(num_epochs):
             task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json"))
         )
         total_loss = wrapper.train_one_epoch()
+        if option.cuda:
+            torch.cuda.empty_cache()
         logging.info("============client: ==============" + str(i + 1))
         logging.info("train: " + str(total_loss))
         total_loss, result = eval(wrapper, test_dataloader, test_num=500)
+        if option.cuda:
+            torch.cuda.empty_cache()
         map = result['map']
         ap = result['ap']
         logging.info("eval: " + str(total_loss) + " " + str(map))
@@ -48,6 +52,8 @@ for epoch in range(num_epochs):
     weight = average_weights(weights)
     global_wrapper.faster_rcnn.load_state_dict(weight)
     total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
+    if option.cuda:
+        torch.cuda.empty_cache()
     map = result['map']
     ap = result['ap']
     epoch_map.append(map)
