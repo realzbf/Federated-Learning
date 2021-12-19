@@ -47,6 +47,9 @@ for epoch in range(num_epochs):
         weights.append(wrapper.faster_rcnn.state_dict())
         if global_wrapper is None:
             global_wrapper = wrapper
+        del wrapper
+        if option.cuda:
+            torch.cuda.empty_cache()
 
     logging.info("===============global: =================")
     weight = average_weights(weights)
