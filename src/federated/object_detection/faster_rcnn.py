@@ -32,7 +32,9 @@ for i in range(5):
     total_loss = wrapper.train_one_epoch()
     logging.info("============client: ==============" + str(i + 1))
     logging.info("train: ", total_loss)
-    total_loss, map, ap = wrapper.evaluate()
+    total_loss, result = eval(wrapper, test_dataloader, test_num=500)
+    map = result['map']
+    ap = result['ap']
     logging.info("eval: ", total_loss, map, ap)
     weights.append(wrapper.faster_rcnn.state_dict())
     if global_wrapper is None:
@@ -41,5 +43,7 @@ for i in range(5):
 logging.info("===============global: =================")
 weight = average_weights(weights)
 global_wrapper.faster_rcnn.load_state_dict(weight)
-total_loss, map, ap = global_wrapper.evaluate()
+total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
+map = result['map']
+ap = result['ap']
 logging.info("eval: ", total_loss, map, ap)
