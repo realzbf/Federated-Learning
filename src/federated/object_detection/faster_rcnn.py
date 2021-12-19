@@ -23,7 +23,7 @@ logging.basicConfig(filename=log_file, level=logging.INFO)
 street_5_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_5"])
 street_20_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_20"])
 weights = []
-global_wrapper = None
+global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_path, "task1.json")))
 
 num_epochs = 1000
 epoch_map = []
@@ -45,8 +45,6 @@ for epoch in range(num_epochs):
         ap = result['ap']
         logging.info("eval: " + str(total_loss) + " " + str(map))
         weights.append(wrapper.faster_rcnn.state_dict())
-        if global_wrapper is None:
-            global_wrapper = wrapper
         del wrapper
         if option.cuda:
             torch.cuda.empty_cache()
