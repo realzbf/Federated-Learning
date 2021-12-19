@@ -35,7 +35,7 @@ for i in range(5):
     total_loss, result = eval(wrapper, test_dataloader, test_num=500)
     map = result['map']
     ap = result['ap']
-    logging.info("eval: " + str(total_loss) + str(map) + +str(ap))
+    logging.info("eval: " + str(total_loss) + str(map) + str(ap))
     weights.append(wrapper.faster_rcnn.state_dict())
     if global_wrapper is None:
         global_wrapper = wrapper
