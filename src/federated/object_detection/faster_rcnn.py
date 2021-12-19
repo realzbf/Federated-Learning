@@ -46,4 +46,4 @@ global_wrapper.faster_rcnn.load_state_dict(weight)
 total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
 map = result['map']
 ap = result['ap']
-logging.info("eval: " + str(total_loss) + str(map) + +str(ap))
+logging.info("eval: " + str(total_loss) + str(map) + str(ap))
