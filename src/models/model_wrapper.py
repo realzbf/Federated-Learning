@@ -64,24 +64,15 @@ class FasterRCNN(object):
             total_loss: the total loss during training
             accuracy: the mAP
         """
-        pred_bboxes, pred_labels, pred_scores = list(), list(), list()
-        gt_bboxes, gt_labels, gt_difficults = list(), list(), list()
         self.trainer.reset_meters()
         for ii, (img, sizes, bbox_, label_, scale, gt_difficults_) in \
                 tqdm(enumerate(self.dataloader)):
             scale = at.scalar(scale)
             img, bbox, label = img.to(self.device).float(), bbox_.to(self.device), label_.to(self.device)
             self.trainer.train_step(img, bbox, label, scale)
-            if (ii + 1) % self.opt.plot_every == 0:
-                sizes = [sizes[0][0].item(), sizes[1][0].item()]
-                pred_bboxes_, pred_labels_, pred_scores_ = \
-                    self.faster_rcnn.predict(img, [sizes])
-                pred_bboxes += pred_bboxes_
-                pred_labels += pred_labels_
-                pred_scores += pred_scores_
-                gt_bboxes += list(bbox_.numpy())
-                gt_labels += list(label_.numpy())
-                gt_difficults += list(gt_difficults_.numpy())
+            del img, bbox, label, scale, gt_difficults_, sizes
+            if self.device != 'cpu':
+                torch.cuda.empty_cache()
 
         return self.trainer.get_meter_data()['total_loss']
 
@@ -108,29 +99,30 @@ def eval(self: FasterRCNN, dataloader, test_num=10000):
     pred_bboxes, pred_labels, pred_scores = list(), list(), list()
     gt_bboxes, gt_labels, gt_difficults = list(), list(), list()
     total_losses = list()
-    for ii, (imgs, sizes, gt_bboxes_, gt_labels_, scale, gt_difficults_) \
-            in tqdm(enumerate(dataloader)):
-        if self.device != "cpu":
-            img = imgs.cuda().float()
-            bbox = gt_bboxes_.cuda()
-            label = gt_labels_.cuda()
-        else:
-            img = imgs.float()
-            bbox = gt_bboxes_
-            label = gt_labels_
-        sizes = [sizes[0][0].item(), sizes[1][0].item()]
-        pred_bboxes_, pred_labels_, pred_scores_ = \
-            self.faster_rcnn.predict(imgs, [sizes])
-        losses = self.trainer.forward(img, bbox, label, float(scale))
-        total_losses.append(losses.total_loss.item())
-        gt_bboxes += list(gt_bboxes_.numpy())
-        gt_labels += list(gt_labels_.numpy())
-        gt_difficults += list(gt_difficults_.numpy())
-        pred_bboxes += pred_bboxes_
-        pred_labels += pred_labels_
-        pred_scores += pred_scores_
-        if ii == test_num:
-            break
+    with torch.no_grad():
+        for ii, (imgs, sizes, gt_bboxes_, gt_labels_, scale, gt_difficults_) \
+                in tqdm(enumerate(dataloader)):
+            if self.device != "cpu":
+                img = imgs.cuda().float()
+                bbox = gt_bboxes_.cuda()
+                label = gt_labels_.cuda()
+            else:
+                img = imgs.float()
+                bbox = gt_bboxes_
+                label = gt_labels_
+            sizes = [sizes[0][0].item(), sizes[1][0].item()]
+            pred_bboxes_, pred_labels_, pred_scores_ = \
+                self.faster_rcnn.predict(imgs, [sizes])
+            losses = self.trainer.forward(img, bbox, label, float(scale))
+            total_losses.append(losses.total_loss.item())
+            gt_bboxes += list(gt_bboxes_.numpy())
+            gt_labels += list(gt_labels_.numpy())
+            gt_difficults += list(gt_difficults_.numpy())
+            pred_bboxes += pred_bboxes_
+            pred_labels += pred_labels_
+            pred_scores += pred_scores_
+            if ii == test_num:
+                break
 
     result = eval_detection_voc(
         pred_bboxes, pred_labels, pred_scores,

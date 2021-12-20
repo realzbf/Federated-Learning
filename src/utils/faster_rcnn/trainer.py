@@ -177,7 +177,7 @@ class FasterRCNNTrainer(nn.Module):
 
     def train_step(self, imgs, bboxes, labels, scale):
         self.optimizer.zero_grad()
-        losses = self.forward(imgs, bboxes, labels, scale)
+        losses = self(imgs, bboxes, labels, scale)
         losses.total_loss.backward()
         self.optimizer.step()
         self.update_meters(losses)
