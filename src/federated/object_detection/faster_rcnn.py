@@ -33,6 +33,7 @@ for epoch in range(num_epochs):
         wrapper = FasterRCNN(
             task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json"))
         )
+        wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict())
         total_loss = wrapper.train_one_epoch()
         if option.cuda:
             torch.cuda.empty_cache()
