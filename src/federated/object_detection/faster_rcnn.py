@@ -6,6 +6,7 @@ from federated.shortcuts import average_weights
 import logging
 from configs.faster_rcnn_config import opt
 import copy
+import gc
 from data.voc.dataset import Dataset, TestDataset
 from torch.utils.data import DataLoader
 
@@ -49,6 +50,7 @@ for epoch in range(num_epochs):
         del wrapper
         if option.cuda:
             torch.cuda.empty_cache()
+        gc.collect()
 
     logging.info("===============global: =================")
     weight = average_weights(weights)
