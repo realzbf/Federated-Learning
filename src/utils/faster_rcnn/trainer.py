@@ -154,7 +154,7 @@ class FasterRCNNTrainer(nn.Module):
             roi_loc.contiguous(),
             gt_roi_loc,
             gt_roi_label.data,
-            self.roi_sigma)
+            self.roi_sigma,device=self.device)
         roi_cls_loss = nn.CrossEntropyLoss()(roi_score, gt_roi_label.to(self.device))
 
         self.roi_cm.add(at.totensor(roi_score, device=self.device), gt_roi_label.data.long())
