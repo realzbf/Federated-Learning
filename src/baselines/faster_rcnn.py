@@ -13,7 +13,7 @@ from utils.faster_rcnn.trainer import FasterRCNNTrainer
 from utils.faster_rcnn import array_tool as at
 from utils.faster_rcnn.vis_tool import visdom_bbox
 from utils.faster_rcnn.eval_tool import eval_detection_voc
-
+from configs.faster_rcnn_config import device
 # fix for ulimit
 # https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
 import resource
@@ -23,7 +23,6 @@ resource.setrlimit(resource.RLIMIT_NOFILE, (20480, rlimit[1]))
 
 matplotlib.use('agg')
 
-cuda = opt.cuda
 
 
 def eval(dataloader, faster_rcnn, test_num=10000):
@@ -66,10 +65,7 @@ def train(**kwargs):
                                        )
     faster_rcnn = FasterRCNNVGG16()
     print('model construct completed')
-    if cuda:
-        trainer = FasterRCNNTrainer(faster_rcnn).cuda()
-    else:
-        trainer = FasterRCNNTrainer(faster_rcnn)
+    trainer = FasterRCNNTrainer(faster_rcnn, device=device)
     if opt.load_path:
         trainer.load(opt.load_path)
         print('load pretrained model from %s' % opt.load_path)

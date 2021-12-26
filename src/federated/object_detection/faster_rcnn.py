@@ -25,7 +25,7 @@ logging.basicConfig(filename=log_file, level=logging.INFO)
 street_5_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_5"])
 street_20_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_20"])
 weights = []
-global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_path, "task1.json")))
+global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_path, "task1.json")), device=device)
 
 num_epochs = 1000
 epoch_map = []

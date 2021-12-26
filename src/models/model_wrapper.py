@@ -48,7 +48,7 @@ class FasterRCNN(object):
         # 模型
         self.faster_rcnn = FasterRCNNVGG16(device=self.device)
         self.trainer = FasterRCNNTrainer(
-            self.faster_rcnn,device=self.device
+            self.faster_rcnn, device=self.device
         ).to(self.device)
 
         # 使用预训练模型
