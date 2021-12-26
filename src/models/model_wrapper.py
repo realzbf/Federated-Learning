@@ -23,12 +23,12 @@ class FasterRCNN(object):
     and mAP@0.5
     """
 
-    def __init__(self, task_config, cuda_device="cuda:0"):
+    def __init__(self, task_config, device="cpu"):
 
         self.model_config = task_config['model_config']
         self.model_config['voc_data_dir'] = task_config['data_path']
         self.opt = opt
-        self.device = cuda_device if opt.cuda else "cpu"
+        self.device = device
         self.opt._parse(self.model_config)
 
         # 数据集
@@ -46,9 +46,9 @@ class FasterRCNN(object):
         # self.valid_size = self.testset.__len__()
 
         # 模型
-        self.faster_rcnn = FasterRCNNVGG16()
+        self.faster_rcnn = FasterRCNNVGG16(device=self.device)
         self.trainer = FasterRCNNTrainer(
-            self.faster_rcnn
+            self.faster_rcnn,device=self.device
         ).to(self.device)
 
         # 使用预训练模型

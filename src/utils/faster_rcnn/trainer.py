@@ -21,7 +21,6 @@ LossTuple = namedtuple('LossTuple',
                         'total_loss'
                         ])
 
-cuda = opt.cuda
 
 
 class FasterRCNNTrainer(nn.Module):
@@ -41,16 +40,16 @@ class FasterRCNNTrainer(nn.Module):
             A Faster R-CNN model that is going to be trained.
     """
 
-    def __init__(self, faster_rcnn):
+    def __init__(self, faster_rcnn, device="cpu"):
         super(FasterRCNNTrainer, self).__init__()
 
         self.faster_rcnn = faster_rcnn
         self.rpn_sigma = opt.rpn_sigma
         self.roi_sigma = opt.roi_sigma
-
+        self.device = device
         # target creator create gt_bbox gt_label etc as training targets. 
         self.anchor_target_creator = AnchorTargetCreator()
-        self.proposal_target_creator = ProposalTargetCreator()
+        self.proposal_target_creator = ProposalTargetCreator(device=device)
 
         self.loc_normalize_mean = faster_rcnn.loc_normalize_mean
         self.loc_normalize_std = faster_rcnn.loc_normalize_std
@@ -129,8 +128,8 @@ class FasterRCNNTrainer(nn.Module):
             at.tonumpy(bbox),
             anchor,
             img_size)
-        gt_rpn_label = at.totensor(gt_rpn_label, cuda=cuda).long()
-        gt_rpn_loc = at.totensor(gt_rpn_loc, cuda=cuda)
+        gt_rpn_label = at.totensor(gt_rpn_label, device=self.device).long()
+        gt_rpn_loc = at.totensor(gt_rpn_loc, device=self.device)
         rpn_loc_loss = _fast_rcnn_loc_loss(
             rpn_loc,
             gt_rpn_loc,
@@ -138,37 +137,27 @@ class FasterRCNNTrainer(nn.Module):
             self.rpn_sigma)
 
         # NOTE: default value of ignore_index is -100 ...
-        if cuda:
-            rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label.cuda(), ignore_index=-1)
-        else:
-            rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label, ignore_index=-1)
+        rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label.to(self.device), ignore_index=-1)
         _gt_rpn_label = gt_rpn_label[gt_rpn_label > -1]
         _rpn_score = at.tonumpy(rpn_score)[at.tonumpy(gt_rpn_label) > -1]
-        self.rpn_cm.add(at.totensor(_rpn_score, cuda=cuda), _gt_rpn_label.data.long())
+        self.rpn_cm.add(at.totensor(_rpn_score, device=self.device), _gt_rpn_label.data.long())
 
         # ------------------ ROI losses (fast rcnn loss) -------------------#
         n_sample = roi_cls_loc.shape[0]
         roi_cls_loc = roi_cls_loc.view(n_sample, -1, 4)
-        if cuda:
-            roi_loc = roi_cls_loc[t.arange(0, n_sample).long().cuda(), \
-                                  at.totensor(gt_roi_label, cuda=cuda).long()]
-        else:
-            roi_loc = roi_cls_loc[t.arange(0, n_sample).long(), \
-                                  at.totensor(gt_roi_label, cuda=cuda).long()]
-        gt_roi_label = at.totensor(gt_roi_label, cuda=cuda).long()
-        gt_roi_loc = at.totensor(gt_roi_loc, cuda=cuda)
+        roi_loc = roi_cls_loc[t.arange(0, n_sample).long().to(self.device), \
+                              at.totensor(gt_roi_label, device=self.device).long()]
+        gt_roi_label = at.totensor(gt_roi_label, device=self.device).long()
+        gt_roi_loc = at.totensor(gt_roi_loc, device=self.device)
 
         roi_loc_loss = _fast_rcnn_loc_loss(
             roi_loc.contiguous(),
             gt_roi_loc,
             gt_roi_label.data,
             self.roi_sigma)
-        if cuda:
-            roi_cls_loss = nn.CrossEntropyLoss()(roi_score, gt_roi_label.cuda())
-        else:
-            roi_cls_loss = nn.CrossEntropyLoss()(roi_score, gt_roi_label)
+        roi_cls_loss = nn.CrossEntropyLoss()(roi_score, gt_roi_label.to(self.device))
 
-        self.roi_cm.add(at.totensor(roi_score, cuda=cuda), gt_roi_label.data.long())
+        self.roi_cm.add(at.totensor(roi_score, device=self.device), gt_roi_label.data.long())
 
         losses = [rpn_loc_loss, rpn_cls_loss, roi_loc_loss, roi_cls_loss]
         losses = losses + [sum(losses)]
@@ -257,17 +246,12 @@ def _smooth_l1_loss(x, t, in_weight, sigma):
     return y.sum()
 
 
-def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma):
-    in_weight = t.zeros(gt_loc.shape)
-    if cuda:
-        in_weight = in_weight.cuda()
+def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma, device="cpu"):
+    in_weight = t.zeros(gt_loc.shape).to(device)
     # Localization loss is calculated only for positive rois.
     # NOTE:  unlike origin implementation, 
     # we don't need inside_weight and outside_weight, they can calculate by gt_label
-    if cuda:
-        in_weight[(gt_label > 0).view(-1, 1).expand_as(in_weight).cuda()] = 1
-    else:
-        in_weight[(gt_label > 0).view(-1, 1).expand_as(in_weight)] = 1
+    in_weight[(gt_label > 0).view(-1, 1).expand_as(in_weight).to(device)] = 1
     loc_loss = _smooth_l1_loss(pred_loc, gt_loc, in_weight.detach(), sigma)
     # Normalize by total number of negtive and positive rois.
     loc_loss /= ((gt_label >= 0).sum().float())  # ignore gt_label==-1 for rpn_loss

@@ -3,10 +3,6 @@ import torch
 from torchvision.ops import nms
 from models.faster_rcnn.utils.bbox_tools import bbox2loc, bbox_iou, loc2bbox
 
-from configs.faster_rcnn_config import opt
-
-cuda = opt.cuda
-
 
 class ProposalTargetCreator(object):
     """Assign ground truth bounding boxes to given RoIs.
@@ -35,13 +31,15 @@ class ProposalTargetCreator(object):
     def __init__(self,
                  n_sample=128,
                  pos_ratio=0.25, pos_iou_thresh=0.5,
-                 neg_iou_thresh_hi=0.5, neg_iou_thresh_lo=0.0
+                 neg_iou_thresh_hi=0.5, neg_iou_thresh_lo=0.0,
+                 device="cpu"
                  ):
         self.n_sample = n_sample
         self.pos_ratio = pos_ratio
         self.pos_iou_thresh = pos_iou_thresh
         self.neg_iou_thresh_hi = neg_iou_thresh_hi
         self.neg_iou_thresh_lo = neg_iou_thresh_lo  # NOTE:default 0.1 in py-faster-rcnn
+        self.device = device
 
     def __call__(self, roi, bbox, label,
                  loc_normalize_mean=(0., 0., 0., 0.),
@@ -338,7 +336,8 @@ class ProposalCreator:
                  n_train_post_nms=2000,
                  n_test_pre_nms=6000,
                  n_test_post_nms=300,
-                 min_size=16
+                 min_size=16,
+                 device="cpu"
                  ):
         self.parent_model = parent_model
         self.nms_thresh = nms_thresh
@@ -347,6 +346,7 @@ class ProposalCreator:
         self.n_test_pre_nms = n_test_pre_nms
         self.n_test_post_nms = n_test_post_nms
         self.min_size = min_size
+        self.device = device
 
     def __call__(self, loc, score,
                  anchor, img_size, scale=1.):
@@ -425,16 +425,10 @@ class ProposalCreator:
 
         # unNOTE: somthing is wrong here!
         # TODO: remove cuda.to_gpu
-        if cuda:
-            keep = nms(
-                torch.from_numpy(roi).cuda(),
-                torch.from_numpy(score).cuda(),
-                self.nms_thresh)
-        else:
-            keep = nms(
-                torch.from_numpy(roi),
-                torch.from_numpy(score),
-                self.nms_thresh)
+        keep = nms(
+            torch.from_numpy(roi),
+            torch.from_numpy(score),
+            self.nms_thresh).to(self.device)
         if n_post_nms > 0:
             keep = keep[:n_post_nms]
         roi = roi[keep.cpu().numpy()]

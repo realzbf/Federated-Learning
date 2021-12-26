@@ -4,6 +4,8 @@ from pprint import pprint
 # Default Configs for training
 # NOTE that, config items could be overwriten by passing argument through command line.
 # e.g. --voc-data-dir='./data/'
+import torch
+
 
 class Config:
     # data
@@ -48,7 +50,7 @@ class Config:
     caffe_pretrain = False  # use caffe pretrained model instead of torchvision
     caffe_pretrain_path = 'checkpoints/vgg16_caffe.pth'
 
-    cuda = False
+    # cuda = False
 
     batch_size = 1
 
@@ -79,3 +81,4 @@ VOC_BBOX_LABEL_NAMES = (
 )
 
 opt = Config()
+device = 'cuda' if torch.cuda.is_available() else 'cpu'

@@ -11,8 +11,6 @@ from data.voc.dataset import preprocess
 from torch.nn import functional as F
 from configs.faster_rcnn_config import opt
 
-cuda = opt.cuda
-
 
 def nograd(f):
     def new_f(*args, **kwargs):
@@ -73,12 +71,14 @@ class FasterRCNN(nn.Module):
 
     def __init__(self, extractor, rpn, head,
                  loc_normalize_mean=(0., 0., 0., 0.),
-                 loc_normalize_std=(0.1, 0.1, 0.2, 0.2)
+                 loc_normalize_std=(0.1, 0.1, 0.2, 0.2),
+                 device="cpu"
                  ):
         super(FasterRCNN, self).__init__()
         self.extractor = extractor
         self.rpn = rpn
         self.head = head
+        self.device = device
 
         # mean and std
         self.loc_normalize_mean = loc_normalize_mean

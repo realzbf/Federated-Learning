@@ -9,8 +9,6 @@ from models.faster_rcnn.faster_rcnn import FasterRCNN
 from utils.faster_rcnn import array_tool as at
 from configs.faster_rcnn_config import opt
 
-cuda = opt.cuda
-
 
 def decom_vgg16():
     # the 30th layer of features is relu of conv5_3
@@ -60,10 +58,11 @@ class FasterRCNNVGG16(FasterRCNN):
     def __init__(self,
                  n_fg_class=20,
                  ratios=[0.5, 1, 2],
-                 anchor_scales=[8, 16, 32]
+                 anchor_scales=[8, 16, 32],
+                 device="cpu"
                  ):
         extractor, classifier = decom_vgg16()
-
+        self.device = device
         rpn = RegionProposalNetwork(
             512, 512,
             ratios=ratios,
@@ -75,7 +74,8 @@ class FasterRCNNVGG16(FasterRCNN):
             n_class=n_fg_class + 1,
             roi_size=7,
             spatial_scale=(1. / self.feat_stride),
-            classifier=classifier
+            classifier=classifier,
+            device=self.device
         )
 
         super(FasterRCNNVGG16, self).__init__(
@@ -100,7 +100,7 @@ class VGG16RoIHead(nn.Module):
     """
 
     def __init__(self, n_class, roi_size, spatial_scale,
-                 classifier):
+                 classifier, device="cpu"):
         # n_class includes the background
         super(VGG16RoIHead, self).__init__()
 
@@ -115,6 +115,8 @@ class VGG16RoIHead(nn.Module):
         self.roi_size = roi_size
         self.spatial_scale = spatial_scale
         self.roi = RoIPool((self.roi_size, self.roi_size), self.spatial_scale)
+
+        self.device = device
 
     def forward(self, x, rois, roi_indices):
         """Forward the chain.
@@ -134,8 +136,8 @@ class VGG16RoIHead(nn.Module):
 
         """
         # in case roi_indices is  ndarray
-        roi_indices = at.totensor(roi_indices, cuda=cuda).float()
-        rois = at.totensor(rois, cuda=cuda).float()
+        roi_indices = at.totensor(roi_indices, device=self.device).float()
+        rois = at.totensor(rois, device=self.device).float()
         indices_and_rois = t.cat([roi_indices[:, None], rois], dim=1)
         # NOTE: important: yx->xy
         xy_indices_and_rois = indices_and_rois[:, [0, 2, 1, 4, 3]]
