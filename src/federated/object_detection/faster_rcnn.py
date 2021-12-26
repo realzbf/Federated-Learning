@@ -45,7 +45,7 @@ def run_local(device, i):
         torch.cuda.empty_cache()
     logging.info("============client: ==============" + str(i + 1))
     logging.info("train: " + str(total_loss))
-    total_loss, result = eval(wrapper, test_dataloader, test_num=500)
+    total_loss, result = eval(wrapper, test_dataloader, test_num=500, device=device)
     if device != "cpu":
         torch.cuda.empty_cache()
     map = result['map']
