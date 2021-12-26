@@ -30,7 +30,7 @@ global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_pa
 epoch_map = []
 for epoch in range(num_global_epoch):
     logging.info("==================epoch===================" + str(epoch + 1))
-    for i in range(num_local_epoch):
+    for i in range(5):
         if device == "cpu":
             wrapper = FasterRCNN(
                 task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
@@ -42,7 +42,7 @@ for epoch in range(num_global_epoch):
                 device="cuda:" + str(i % 4)
             )
         wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict())
-        for j in range(5):
+        for j in range(num_local_epoch):
             total_loss = wrapper.train_one_epoch()
         if option.cuda:
             torch.cuda.empty_cache()
