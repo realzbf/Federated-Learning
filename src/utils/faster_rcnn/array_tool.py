@@ -12,7 +12,7 @@ def tonumpy(data):
         return data.detach().cpu().numpy()
 
 
-def totensor(data, device="cpu"):
+def totensor(data, device):
     tensor = None
     if isinstance(data, np.ndarray):
         tensor = t.from_numpy(data)

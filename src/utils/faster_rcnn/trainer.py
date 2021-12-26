@@ -22,7 +22,6 @@ LossTuple = namedtuple('LossTuple',
                         ])
 
 
-
 class FasterRCNNTrainer(nn.Module):
     """wrapper for conveniently training. return losses
 
@@ -40,7 +39,7 @@ class FasterRCNNTrainer(nn.Module):
             A Faster R-CNN model that is going to be trained.
     """
 
-    def __init__(self, faster_rcnn, device="cpu"):
+    def __init__(self, faster_rcnn, device):
         super(FasterRCNNTrainer, self).__init__()
 
         self.faster_rcnn = faster_rcnn
@@ -134,7 +133,8 @@ class FasterRCNNTrainer(nn.Module):
             rpn_loc,
             gt_rpn_loc,
             gt_rpn_label.data,
-            self.rpn_sigma)
+            self.rpn_sigma,
+            device=self.device)
 
         # NOTE: default value of ignore_index is -100 ...
         rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label.to(self.device), ignore_index=-1)
@@ -189,7 +189,7 @@ class FasterRCNNTrainer(nn.Module):
         save_dict['model'] = self.faster_rcnn.state_dict()
         save_dict['config'] = opt._state_dict()
         save_dict['other_info'] = kwargs
-        #save_dict['vis_info'] = self.vis.state_dict()
+        # save_dict['vis_info'] = self.vis.state_dict()
 
         if save_optimizer:
             save_dict['optimizer'] = self.optimizer.state_dict()
@@ -205,7 +205,7 @@ class FasterRCNNTrainer(nn.Module):
             os.makedirs(save_dir)
 
         t.save(save_dict, save_path)
-        #self.vis.save([self.vis.env])
+        # self.vis.save([self.vis.env])
         return save_path
 
     def load(self, path, load_optimizer=True, parse_opt=False, ):
@@ -246,7 +246,7 @@ def _smooth_l1_loss(x, t, in_weight, sigma):
     return y.sum()
 
 
-def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma, device="cpu"):
+def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma, device):
     in_weight = t.zeros(gt_loc.shape).to(device)
     # Localization loss is calculated only for positive rois.
     # NOTE:  unlike origin implementation, 

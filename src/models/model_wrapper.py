@@ -23,7 +23,7 @@ class FasterRCNN(object):
     and mAP@0.5
     """
 
-    def __init__(self, task_config, device="cpu"):
+    def __init__(self, task_config, device):
 
         self.model_config = task_config['model_config']
         self.model_config['voc_data_dir'] = task_config['data_path']
