@@ -53,7 +53,7 @@ def run_local(device, i):
     logging.info("eval: " + str(total_loss) + " " + str(map))
     res = wrapper.faster_rcnn.state_dict()
     del wrapper
-    if option.cuda:
+    if device != "cpu":
         torch.cuda.empty_cache()
     gc.collect()
     return res
@@ -67,11 +67,10 @@ if __name__ == "__main__":
         for i in range(5):
             weights.append(run_local(device, i))
         logging.info("===============global: =================")
-        print(weights)
         weight = average_weights(weights)
         global_wrapper.faster_rcnn.load_state_dict(weight)
         total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
-        if option.cuda:
+        if device != "cpu":
             torch.cuda.empty_cache()
         map = result['map']
         ap = result['ap']
