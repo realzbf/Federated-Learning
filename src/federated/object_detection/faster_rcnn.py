@@ -36,7 +36,8 @@ for epoch in range(num_epochs):
             cuda_device="cuda:" + str(i % 4)
         )
         wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict())
-        total_loss = wrapper.train_one_epoch()
+        for j in range(5):
+            total_loss = wrapper.train_one_epoch()
         if option.cuda:
             torch.cuda.empty_cache()
         logging.info("============client: ==============" + str(i + 1))
