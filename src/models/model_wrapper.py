@@ -95,21 +95,16 @@ class FasterRCNN(object):
         return total_loss, eval_result['map'], eval_result['ap']
 
 
-def eval(self: FasterRCNN, dataloader, test_num=10000):
+def eval(self: FasterRCNN, dataloader, device, test_num=10000):
     pred_bboxes, pred_labels, pred_scores = list(), list(), list()
     gt_bboxes, gt_labels, gt_difficults = list(), list(), list()
     total_losses = list()
     with torch.no_grad():
         for ii, (imgs, sizes, gt_bboxes_, gt_labels_, scale, gt_difficults_) \
                 in tqdm(enumerate(dataloader)):
-            if self.device != "cpu":
-                img = imgs.cuda().float()
-                bbox = gt_bboxes_.cuda()
-                label = gt_labels_.cuda()
-            else:
-                img = imgs.float()
-                bbox = gt_bboxes_
-                label = gt_labels_
+            img = imgs.to(device).float()
+            bbox = gt_bboxes_.to(device)
+            label = gt_labels_.to(device)
             sizes = [sizes[0][0].item(), sizes[1][0].item()]
             pred_bboxes_, pred_labels_, pred_scores_ = \
                 self.faster_rcnn.predict(imgs, [sizes])

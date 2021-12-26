@@ -69,7 +69,7 @@ if __name__ == "__main__":
         logging.info("===============global: =================")
         weight = average_weights(weights)
         global_wrapper.faster_rcnn.load_state_dict(weight)
-        total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
+        total_loss, result = eval(global_wrapper, test_dataloader, device=device, test_num=500)
         if device != "cpu":
             torch.cuda.empty_cache()
         map = result['map']
