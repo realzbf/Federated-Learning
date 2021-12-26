@@ -24,49 +24,56 @@ logging.basicConfig(filename=log_file, level=logging.INFO)
 
 street_5_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_5"])
 street_20_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_20"])
-weights = []
 global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_path, "task1.json")), device=device)
 
-epoch_map = []
-for epoch in range(num_global_epoch):
-    logging.info("==================epoch===================" + str(epoch + 1))
-    for i in range(5):
-        if device == "cpu":
-            wrapper = FasterRCNN(
-                task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
-                device="cpu"  # "cuda:" + str(i % 4)
-            )
-        else:
-            wrapper = FasterRCNN(
-                task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
-                device="cuda:" + str(i % 4)
-            )
-        wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict())
-        for j in range(num_local_epoch):
-            total_loss = wrapper.train_one_epoch()
-        if option.cuda:
-            torch.cuda.empty_cache()
-        logging.info("============client: ==============" + str(i + 1))
-        logging.info("train: " + str(total_loss))
-        total_loss, result = eval(wrapper, test_dataloader, test_num=500)
+
+def run_local(device, i):
+    if device == "cpu":
+        wrapper = FasterRCNN(
+            task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
+            device="cpu"  # "cuda:" + str(i % 4)
+        )
+    else:
+        wrapper = FasterRCNN(
+            task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
+            device="cuda:" + str(i % 4)
+        )
+    wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict())
+    for j in range(num_local_epoch):
+        total_loss = wrapper.train_one_epoch()
+    if device != "cpu":
+        torch.cuda.empty_cache()
+    logging.info("============client: ==============" + str(i + 1))
+    logging.info("train: " + str(total_loss))
+    total_loss, result = eval(wrapper, test_dataloader, test_num=500)
+    if device != "cpu":
+        torch.cuda.empty_cache()
+    map = result['map']
+    ap = result['ap']
+    logging.info("eval: " + str(total_loss) + " " + str(map))
+    res = wrapper.faster_rcnn.state_dict()
+    del wrapper
+    if option.cuda:
+        torch.cuda.empty_cache()
+    gc.collect()
+    return res
+
+
+if __name__ == "__main__":
+    epoch_map = []
+    for epoch in range(num_global_epoch):
+        weights = []
+        logging.info("==================epoch===================" + str(epoch + 1))
+        for i in range(5):
+            weights.append(run_local(device, i))
+        logging.info("===============global: =================")
+        print(weights)
+        weight = average_weights(weights)
+        global_wrapper.faster_rcnn.load_state_dict(weight)
+        total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
         if option.cuda:
             torch.cuda.empty_cache()
         map = result['map']
         ap = result['ap']
+        epoch_map.append(map)
         logging.info("eval: " + str(total_loss) + " " + str(map))
-        weights.append(wrapper.faster_rcnn.state_dict())
-        del wrapper
-        if option.cuda:
-            torch.cuda.empty_cache()
-        gc.collect()
-
-    logging.info("===============global: =================")
-    weight = average_weights(weights)
-    global_wrapper.faster_rcnn.load_state_dict(weight)
-    total_loss, result = eval(global_wrapper, test_dataloader, test_num=500)
-    if option.cuda:
-        torch.cuda.empty_cache()
-    map = result['map']
-    ap = result['ap']
-    epoch_map.append(map)
-    logging.info("eval: " + str(total_loss) + " " + str(map))
