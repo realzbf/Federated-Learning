@@ -115,9 +115,6 @@ def train(**kwargs):
         eval_result = eval(test_dataloader, faster_rcnn, test_num=opt.test_num)
         #trainer.vis.plot('test_map', eval_result['map'])
         lr_ = trainer.faster_rcnn.optimizer.param_groups[0]['lr']
-        log_info = 'lr:{}, map:{},loss:{}'.format(str(lr_),
-                                                  str(eval_result['map']),
-                                                  str(trainer.get_meter_data()))
         #trainer.vis.log(log_info)
 
         if eval_result['map'] > best_map:

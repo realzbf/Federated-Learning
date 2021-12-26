@@ -23,12 +23,12 @@ class FasterRCNN(object):
     and mAP@0.5
     """
 
-    def __init__(self, task_config):
+    def __init__(self, task_config, cuda_device="cuda:0"):
 
         self.model_config = task_config['model_config']
         self.model_config['voc_data_dir'] = task_config['data_path']
         self.opt = opt
-        self.device = "cuda" if opt.cuda else "cpu"
+        self.device = cuda_device if opt.cuda else "cpu"
         self.opt._parse(self.model_config)
 
         # 数据集

@@ -32,7 +32,8 @@ for epoch in range(num_epochs):
     logging.info("==================epoch===================" + str(epoch + 1))
     for i in range(5):
         wrapper = FasterRCNN(
-            task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json"))
+            task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
+            cuda_device="cuda:" + str(i % 4)
         )
         wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict())
         total_loss = wrapper.train_one_epoch()
