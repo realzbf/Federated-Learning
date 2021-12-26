@@ -1,6 +1,5 @@
 from pprint import pprint
 
-
 # Default Configs for training
 # NOTE that, config items could be overwriten by passing argument through command line.
 # e.g. --voc-data-dir='./data/'
@@ -82,3 +81,5 @@ VOC_BBOX_LABEL_NAMES = (
 
 opt = Config()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+num_local_epoch = 5
+num_global_epoch = 100

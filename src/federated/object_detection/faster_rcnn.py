@@ -9,7 +9,7 @@ import copy
 import gc
 from data.voc.dataset import Dataset, TestDataset
 from torch.utils.data import DataLoader
-from configs.faster_rcnn_config import device
+from configs.faster_rcnn_config import device, num_local_epoch, num_global_epoch
 
 option = copy.deepcopy(opt)
 option.voc_data_dir = voc_dir
@@ -27,11 +27,10 @@ street_20_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_20"])
 weights = []
 global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_path, "task1.json")), device=device)
 
-num_epochs = 1000
 epoch_map = []
-for epoch in range(num_epochs):
+for epoch in range(num_global_epoch):
     logging.info("==================epoch===================" + str(epoch + 1))
-    for i in range(5):
+    for i in range(num_local_epoch):
         if device == "cpu":
             wrapper = FasterRCNN(
                 task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
