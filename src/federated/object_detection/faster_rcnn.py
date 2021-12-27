@@ -61,15 +61,15 @@ def run_local(device, i):
         torch.cuda.empty_cache()
     logging.info("============client: ==============" + str(i + 1))
     logging.info("train: " + str(total_loss))
-    if device == "cpu":
-        total_loss, result = eval(wrapper, test_dataloader, test_num=500, device=device)
-    else:
-        total_loss, result = eval(wrapper, test_dataloader, test_num=500, device="cuda:" + str(i % 4))
-    if device != "cpu":
-        torch.cuda.empty_cache()
-    map = result['map']
-    ap = result['ap']
-    logging.info("eval: " + str(total_loss) + " " + str(map))
+    # if device == "cpu":
+    #     total_loss, result = eval(wrapper, test_dataloader, test_num=500, device=device)
+    # else:
+    #     total_loss, result = eval(wrapper, test_dataloader, test_num=500, device="cuda:" + str(i % 4))
+    # if device != "cpu":
+    #     torch.cuda.empty_cache()
+    # map = result['map']
+    # ap = result['ap']
+    # logging.info("eval: " + str(total_loss) + " " + str(map))
     res = wrapper.faster_rcnn.state_dict()
     del wrapper
     if device != "cpu":
