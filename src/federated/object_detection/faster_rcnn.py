@@ -24,7 +24,7 @@ logging.basicConfig(filename=log_file, level=logging.INFO)
 
 street_5_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_5"])
 street_20_tasks_path = os.path.join(*[BASE_DIR, "configs", "street_20"])
-global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_path, "task1.json")), device=device)
+global_wrapper = FasterRCNN(task_config=load_json(os.path.join(street_5_tasks_path, "task1.json")), device="cpu")
 
 
 def run_local(device, i):
@@ -38,7 +38,10 @@ def run_local(device, i):
             task_config=load_json(os.path.join(street_5_tasks_path, "task" + str(i + 1) + ".json")),
             device="cuda:" + str(i % 4)
         )
-    wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict())
+    if device == "cpu":
+        wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict().to("cpu"))
+    else:
+        wrapper.faster_rcnn.load_state_dict(wrapper.faster_rcnn.state_dict().to("cuda:" + str(i % 4)))
     for j in range(num_local_epoch):
         total_loss = wrapper.train_one_epoch()
     if device != "cpu":
@@ -68,11 +71,11 @@ if __name__ == "__main__":
         weights = []
         logging.info("==================epoch===================" + str(epoch + 1))
         for i in range(5):
-            weights.append(run_local(device, i))
+            weights.append(run_local(device, i).to("cpu"))
         logging.info("===============global: =================")
         weight = average_weights(weights)
         global_wrapper.faster_rcnn.load_state_dict(weight)
-        total_loss, result = eval(global_wrapper, test_dataloader, device=device, test_num=500)
+        total_loss, result = eval(global_wrapper, test_dataloader, device="cpu", test_num=500)
         if device != "cpu":
             torch.cuda.empty_cache()
         map = result['map']
