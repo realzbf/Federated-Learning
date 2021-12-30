@@ -27,7 +27,7 @@ centralized_config = {
     "data_path": opt.voc_data_dir,
     "local_epoch": 5
 }
-log_file = os.path.join(*[BASE_DIR, "logs", "avg_faster_rcnn.txt"])
+log_file = os.path.join(*[BASE_DIR, "logs", "baseline_faster_rcnn.txt"])
 logging.basicConfig(filename=log_file, level=logging.INFO)
 
 config_path = os.path.join(*[BASE_DIR, "configs"])
